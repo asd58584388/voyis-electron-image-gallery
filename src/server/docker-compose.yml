@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: "postgres:${POSTGRES_VERSION:-18}-alpine"
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./api
+      args:
+        NODE_VERSION: ${NODE_VERSION:-24}
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      PORT: ${API_SERVER_PORT:-3000}
+      STORAGE_PATH: /app/uploads
+    volumes:
+      - uploads_data:/app/uploads      # Persist uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: sh -c "npm run db:push && npm run start"
+    env_file:
+      - ./api/.env.docker                     # Use a separate env file for container
+
+volumes:
+  postgres_data:
+  uploads_data:
