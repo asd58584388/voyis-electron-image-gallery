@@ -111,6 +111,9 @@ export default function App() {
     },
   ]);
 
+  const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true);
+  const [isBottomPanelOpen, setIsBottomPanelOpen] = useState(true);
+
   const addLog = (
     message: string,
     type: "info" | "success" | "error" = "info"
@@ -191,6 +194,7 @@ export default function App() {
       <div className="flex flex-1 overflow-hidden">
         {/* Left Panel */}
         <LeftPanel
+          isOpen={isLeftPanelOpen}
           onUpload={handleUpload}
           activeImage={activeImage}
           selectedCount={selectedImageIds.size}
@@ -207,11 +211,17 @@ export default function App() {
           onExport={handleExport}
           currentImageId={currentImageId}
           setCurrentImageId={setCurrentImageId}
+          isLeftPanelOpen={isLeftPanelOpen}
+          onToggleLeftPanel={() => setIsLeftPanelOpen(!isLeftPanelOpen)}
         />
       </div>
 
       {/* Bottom Panel */}
-      <BottomPanel logs={logs} />
+      <BottomPanel
+        logs={logs}
+        isOpen={isBottomPanelOpen}
+        onToggle={() => setIsBottomPanelOpen(!isBottomPanelOpen)}
+      />
     </div>
   );
 }

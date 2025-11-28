@@ -11,6 +11,8 @@ interface CenterPanelProps {
   onExport: () => void;
   currentImageId: string | null;
   setCurrentImageId: (id: string | null) => void;
+  isLeftPanelOpen: boolean;
+  onToggleLeftPanel: () => void;
 }
 
 export default function CenterPanel({
@@ -23,6 +25,8 @@ export default function CenterPanel({
   onExport,
   currentImageId,
   setCurrentImageId,
+  isLeftPanelOpen,
+  onToggleLeftPanel,
 }: CenterPanelProps) {
   const [filterType, setFilterType] = useState<string>("all");
 
@@ -40,10 +44,42 @@ export default function CenterPanel({
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-gray-100 overflow-hidden">
+    <div className="flex-1 flex flex-col bg-gray-100 overflow-hidden transition-all duration-300">
       {/* Toolbar */}
       <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-sm z-10">
         <div className="flex items-center gap-4">
+          {/* Sidebar Toggle */}
+          <button
+            onClick={onToggleLeftPanel}
+            className="p-1.5 rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            title={isLeftPanelOpen ? "Close Sidebar" : "Open Sidebar"}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+              className="w-5 h-5"
+            >
+              {isLeftPanelOpen ? (
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5"
+                />
+              ) : (
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
+                />
+              )}
+            </svg>
+          </button>
+
+          <div className="h-4 w-px bg-gray-300"></div>
+
           {/* Filter */}
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-500">Filter:</span>
