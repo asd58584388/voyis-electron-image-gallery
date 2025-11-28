@@ -260,7 +260,7 @@ router.patch(
 );
 
 /**
- * Permanently delete image and files
+ * Soft delete image (mark as deleted without removing files)
  * DELETE /api/images/:id
  */
 router.delete(
@@ -276,18 +276,23 @@ router.delete(
       return;
     }
 
-    // Delete files
-    await deleteFileIfExists(existingImage.path);
-    if (existingImage.thumbnail_path) {
-      await deleteFileIfExists(existingImage.thumbnail_path);
+    // Check if already deleted
+    if (existingImage.deleted_at) {
+      sendError(res, "Image already deleted", 400, "ALREADY_DELETED");
+      return;
     }
 
-    // Delete from database
-    await prisma.image.delete({
+    // Soft delete - just mark as deleted, keep files intact
+    const deletedImage = await prisma.image.update({
       where: { id: req.params.id! },
+      data: { deleted_at: new Date() },
     });
 
-    sendSuccess(res, { message: "Image permanently deleted" });
+    sendSuccess(res, {
+      message: "Image deleted successfully",
+      id: deletedImage.id,
+      deleted_at: deletedImage.deleted_at,
+    });
   })
 );
 
