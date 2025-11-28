@@ -33,7 +33,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: sh -c "npm run db:push && npm run start"
+    command: sh -c "npm run db:migrate && npm run start"
     env_file:
       - ./api/.env.docker                     # Use a separate env file for container
 

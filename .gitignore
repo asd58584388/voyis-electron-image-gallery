@@ -88,5 +88,11 @@ typings/
 # Vite
 .vite/
 
+.vscode/
+
 # Electron-Forge
 out/
+
+
+dist
+generated
