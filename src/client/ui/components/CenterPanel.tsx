@@ -1,46 +1,45 @@
-import React, { useState, useMemo } from "react";
-import { ImageFile } from "./App";
+import React from "react";
+import { ImageFile, ViewMode, FilterType } from "../types";
+import { Button, Badge } from "./common";
 
 interface CenterPanelProps {
   images: ImageFile[];
-  viewMode: "gallery" | "single";
-  setViewMode: (mode: "gallery" | "single") => void;
-  selectedImageIds: Set<string>;
+  totalImages: number;
+  viewMode: ViewMode;
+  setViewMode: (mode: ViewMode) => void;
+  selectedIds: Set<string>;
+  filterType: FilterType;
+  setFilterType: (type: FilterType) => void;
   onSelectionChange: (id: string, multi: boolean) => void;
   onSelectAll: () => void;
   onExport: () => void;
-  currentImageId: string | null;
-  setCurrentImageId: (id: string | null) => void;
+  activeId: string | null;
+  setActiveId: (id: string | null) => void;
   isLeftPanelOpen: boolean;
   onToggleLeftPanel: () => void;
 }
 
 export default function CenterPanel({
   images,
+  totalImages,
   viewMode,
   setViewMode,
-  selectedImageIds,
+  selectedIds,
+  filterType,
+  setFilterType,
   onSelectionChange,
   onSelectAll,
   onExport,
-  currentImageId,
-  setCurrentImageId,
+  activeId,
+  setActiveId,
   isLeftPanelOpen,
   onToggleLeftPanel,
 }: CenterPanelProps) {
-  const [filterType, setFilterType] = useState<string>("all");
-
-  const filteredImages = useMemo(() => {
-    if (filterType === "all") return images;
-    return images.filter((img) => img.type.includes(filterType));
-  }, [images, filterType]);
-
-  const activeImage = images.find((img) => img.id === currentImageId);
+  const activeImage = images.find((img) => img.id === activeId);
 
   const handleThumbnailClick = (e: React.MouseEvent, id: string) => {
     const isMulti = e.metaKey || e.ctrlKey || e.shiftKey;
     onSelectionChange(id, isMulti);
-    setCurrentImageId(id);
   };
 
   return (
@@ -48,10 +47,11 @@ export default function CenterPanel({
       {/* Toolbar */}
       <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-sm z-10">
         <div className="flex items-center gap-4">
-          {/* Sidebar Toggle */}
-          <button
+          <Button
             onClick={onToggleLeftPanel}
-            className="p-1.5 rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            variant="ghost"
+            size="sm"
+            className="!px-2"
             title={isLeftPanelOpen ? "Close Sidebar" : "Open Sidebar"}
           >
             <svg
@@ -76,17 +76,16 @@ export default function CenterPanel({
                 />
               )}
             </svg>
-          </button>
+          </Button>
 
           <div className="h-4 w-px bg-gray-300"></div>
 
-          {/* Filter */}
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-500">Filter:</span>
             <select
               className="text-sm border-gray-300 rounded-md border px-2 py-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
               value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
+              onChange={(e) => setFilterType(e.target.value as FilterType)}
             >
               <option value="all">All Files</option>
               <option value="jpeg">JPEG Images</option>
@@ -96,7 +95,6 @@ export default function CenterPanel({
 
           <div className="h-4 w-px bg-gray-300"></div>
 
-          {/* View Switcher */}
           <div className="flex bg-gray-100 rounded-lg p-1">
             <button
               className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
@@ -122,25 +120,19 @@ export default function CenterPanel({
         </div>
 
         <div className="flex items-center gap-3">
-          <button
-            onClick={onSelectAll}
-            className="text-sm text-gray-600 hover:text-gray-900 px-2"
-          >
-            {selectedImageIds.size === images.length && images.length > 0
+          <Button variant="ghost" size="sm" onClick={onSelectAll}>
+            {selectedIds.size === totalImages && totalImages > 0
               ? "Deselect All"
               : "Select All"}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant={selectedIds.size > 0 ? "success" : "secondary"}
+            size="sm"
             onClick={onExport}
-            disabled={selectedImageIds.size === 0}
-            className={`text-sm font-medium py-1.5 px-4 rounded-md transition-colors ${
-              selectedImageIds.size > 0
-                ? "bg-green-600 hover:bg-green-700 text-white shadow-sm"
-                : "bg-gray-200 text-gray-400 cursor-not-allowed"
-            }`}
+            disabled={selectedIds.size === 0}
           >
             Export Selected
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -148,16 +140,16 @@ export default function CenterPanel({
       <div className="flex-1 overflow-y-auto p-6">
         {viewMode === "gallery" ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {filteredImages.map((image) => (
+            {images.map((image) => (
               <div
                 key={image.id}
                 onClick={(e) => handleThumbnailClick(e, image.id)}
                 onDoubleClick={() => {
-                  setCurrentImageId(image.id);
+                  setActiveId(image.id);
                   setViewMode("single");
                 }}
                 className={`group relative bg-white rounded-lg shadow-sm border-2 overflow-hidden cursor-pointer transition-all hover:shadow-md ${
-                  selectedImageIds.has(image.id)
+                  selectedIds.has(image.id)
                     ? "border-blue-500 ring-2 ring-blue-200"
                     : "border-transparent hover:border-gray-300"
                 }`}
@@ -169,9 +161,11 @@ export default function CenterPanel({
                     className="w-full h-full object-cover transition-transform group-hover:scale-105"
                     loading="lazy"
                   />
-                  {selectedImageIds.has(image.id) && (
-                    <div className="absolute top-2 right-2 w-5 h-5 bg-blue-500 rounded-full border-2 border-white flex items-center justify-center shadow-sm">
-                      <div className="w-2 h-2 bg-white rounded-full"></div>
+                  {selectedIds.has(image.id) && (
+                    <div className="absolute top-2 right-2">
+                      <Badge className="bg-blue-500 text-white w-5 h-5 !p-0 flex items-center justify-center border-2 border-white">
+                        ✓
+                      </Badge>
                     </div>
                   )}
                 </div>
@@ -186,7 +180,7 @@ export default function CenterPanel({
                 </div>
               </div>
             ))}
-            {filteredImages.length === 0 && (
+            {images.length === 0 && (
               <div className="col-span-full flex flex-col items-center justify-center py-12 text-gray-500">
                 <p>No images found matching filter.</p>
               </div>
@@ -212,12 +206,14 @@ export default function CenterPanel({
                     {activeImage.dimensions} • {activeImage.size}
                   </p>
                 </div>
-                <button
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={() => setViewMode("gallery")}
-                  className="absolute top-4 left-4 bg-white/90 hover:bg-white text-gray-800 px-4 py-2 rounded-lg shadow-sm text-sm font-medium backdrop-blur-sm transition-colors"
+                  className="absolute top-4 left-4 bg-white/90 hover:bg-white backdrop-blur-sm shadow-sm"
                 >
                   ← Back to Gallery
-                </button>
+                </Button>
               </>
             ) : (
               <div className="text-gray-500">Select an image to view</div>

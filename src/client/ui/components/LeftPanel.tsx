@@ -1,5 +1,6 @@
 import React from "react";
-import { ImageFile } from "./App";
+import { ImageFile } from "../types";
+import { Button } from "./common";
 
 interface LeftPanelProps {
   onUpload: () => void;
@@ -16,19 +17,18 @@ export default function LeftPanel({
 }: LeftPanelProps) {
   return (
     <div
-      className={`${isOpen ? "w-64 border-r" : "w-0 border-none"} bg-white border-gray-200 flex flex-col shadow-sm z-10 transition-all duration-300 overflow-hidden`}
+      className={`${
+        isOpen ? "w-64 border-r" : "w-0 border-none"
+      } bg-white border-gray-200 flex flex-col shadow-sm z-10 transition-all duration-300 overflow-hidden`}
     >
       <div className="min-w-[16rem] flex flex-col h-full">
         <div className="p-4 border-b bg-gray-50">
           <h2 className="text-lg font-semibold text-gray-700 mb-4">
             Gallery Actions
           </h2>
-          <button
-            onClick={onUpload}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded shadow transition-colors flex items-center justify-center gap-2"
-          >
+          <Button onClick={onUpload} variant="primary" className="w-full">
             <span>Upload Image</span>
-          </button>
+          </Button>
         </div>
 
         <div className="flex-1 p-4 overflow-y-auto">
