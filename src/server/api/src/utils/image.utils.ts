@@ -38,7 +38,11 @@ export function generateUniqueFilename(
  */
 export async function calculateFileHash(filePath: string): Promise<string> {
   const fileBuffer = await fs.readFile(filePath);
-  return crypto.createHash("md5").update(fileBuffer).digest("hex");
+  return crypto
+    .createHash("md5")
+    .update(filePath)
+    .update(fileBuffer)
+    .digest("hex");
 }
 
 /**

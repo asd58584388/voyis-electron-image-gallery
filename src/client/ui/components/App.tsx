@@ -26,6 +26,7 @@ export default function App() {
     prevPage,
     total,
     deleteImage,
+    cropImage, // Add cropImage
   } = useImageGallery();
 
   const { logs, addLog } = useLogs();
@@ -126,6 +127,7 @@ export default function App() {
           onSelectAll={onSelectAll}
           onExport={onExport}
           onDelete={onDelete}
+          onCrop={cropImage}
           activeId={activeId}
           setActiveId={setActiveId}
           isLeftPanelOpen={isLeftPanelOpen}

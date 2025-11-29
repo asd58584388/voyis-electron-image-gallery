@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { ImageFile, ViewMode, FilterType } from "../../types";
 import { Button, Badge } from "./common";
 import { getImageSrc, getFormattedSize, getDimensions } from "../utils";
+import Cropper from "react-cropper";
+import "cropperjs/dist/cropper.css";
 
 interface CenterPanelProps {
   images: ImageFile[];
@@ -24,6 +26,10 @@ interface CenterPanelProps {
   totalPages: number;
   onNextPage: () => void;
   onPrevPage: () => void;
+  onCrop: (
+    id: string,
+    cropData: { x: number; y: number; width: number; height: number }
+  ) => Promise<boolean>;
 }
 
 export default function CenterPanel({
@@ -47,6 +53,7 @@ export default function CenterPanel({
   totalPages,
   onNextPage,
   onPrevPage,
+  onCrop,
 }: CenterPanelProps) {
   const activeImage = images.find((img) => img.id === activeId);
   const [contextMenu, setContextMenu] = useState<{
@@ -54,12 +61,19 @@ export default function CenterPanel({
     y: number;
     id: string;
   } | null>(null);
+  const [isCropping, setIsCropping] = useState(false);
+  const cropperRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
     const handleClick = () => setContextMenu(null);
     window.addEventListener("click", handleClick);
     return () => window.removeEventListener("click", handleClick);
   }, []);
+
+  // Reset cropping when active image changes or view mode changes
+  useEffect(() => {
+    setIsCropping(false);
+  }, [activeId, viewMode]);
 
   const handleThumbnailClick = (e: React.MouseEvent, id: string) => {
     const isMulti = e.metaKey || e.ctrlKey || e.shiftKey;
@@ -69,6 +83,24 @@ export default function CenterPanel({
   const handleContextMenu = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     setContextMenu({ x: e.clientX, y: e.clientY, id });
+  };
+
+  const handleCrop = async () => {
+    const imageElement: any = cropperRef?.current;
+    const cropper: any = imageElement?.cropper;
+
+    if (typeof cropper !== "undefined" && activeImage) {
+      const data = cropper.getData();
+      const success = await onCrop(activeImage.id, {
+        x: data.x,
+        y: data.y,
+        width: data.width,
+        height: data.height,
+      });
+      if (success) {
+        setIsCropping(false);
+      }
+    }
   };
 
   return (
@@ -282,24 +314,71 @@ export default function CenterPanel({
           <div className="h-full flex flex-col items-center justify-center bg-gray-900/5 rounded-xl border border-gray-200 p-4 relative">
             {activeImage ? (
               <>
-                <div className="relative max-w-full max-h-full flex items-center justify-center">
-                  <img
-                    src={getImageSrc(activeImage)}
-                    alt={
-                      activeImage.metadata?.originalName || activeImage.filename
-                    }
-                    className="max-w-full max-h-[calc(100vh-300px)] object-contain rounded shadow-lg"
-                  />
+                <div className="relative w-full h-full flex flex-col items-center justify-center overflow-hidden">
+                  {isCropping ? (
+                    <div className="w-full h-[calc(100vh-300px)] bg-black rounded-lg overflow-hidden shadow-lg">
+                      <Cropper
+                        src={getImageSrc(activeImage)}
+                        style={{ height: "100%", width: "100%" }}
+                        initialAspectRatio={NaN}
+                        guides={true}
+                        ref={cropperRef}
+                        viewMode={1}
+                        dragMode="move"
+                        scalable={true}
+                        cropBoxMovable={true}
+                        cropBoxResizable={true}
+                        background={false}
+                        responsive={true}
+                        checkCrossOrigin={false}
+                      />
+                    </div>
+                  ) : (
+                    <img
+                      src={getImageSrc(activeImage)}
+                      alt={
+                        activeImage.metadata?.originalName ||
+                        activeImage.filename
+                      }
+                      className="max-w-full max-h-[calc(100vh-300px)] object-contain rounded shadow-lg"
+                    />
+                  )}
                 </div>
-                <div className="mt-4 text-center">
-                  <h3 className="text-lg font-medium text-gray-900">
-                    {activeImage.metadata?.originalName || activeImage.filename}
-                  </h3>
-                  <p className="text-sm text-gray-500">
-                    {getDimensions(activeImage)} •{" "}
-                    {getFormattedSize(activeImage.size)}
-                  </p>
+
+                <div className="mt-4 flex flex-col items-center gap-3 z-10 w-full">
+                  {isCropping ? (
+                    <div className="flex gap-3">
+                      <Button onClick={handleCrop} variant="success">
+                        Save Crop
+                      </Button>
+                      <Button
+                        onClick={() => setIsCropping(false)}
+                        variant="secondary"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="text-center">
+                      <h3 className="text-lg font-medium text-gray-900">
+                        {activeImage.metadata?.originalName ||
+                          activeImage.filename}
+                      </h3>
+                      <p className="text-sm text-gray-500 mb-3">
+                        {getDimensions(activeImage)} •{" "}
+                        {getFormattedSize(activeImage.size)}
+                      </p>
+                      <Button
+                        onClick={() => setIsCropping(true)}
+                        variant="secondary"
+                        size="sm"
+                      >
+                        Crop Image
+                      </Button>
+                    </div>
+                  )}
                 </div>
+
                 <Button
                   variant="secondary"
                   size="sm"

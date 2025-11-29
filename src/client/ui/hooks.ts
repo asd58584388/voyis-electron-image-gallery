@@ -181,6 +181,46 @@ export function useImageGallery() {
     [fetchImages, selectedIds, activeId]
   );
 
+  const cropImage = useCallback(
+    async (
+      id: string,
+      cropData: { x: number; y: number; width: number; height: number }
+    ) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(`${API_BASE_URL}/images/${id}/crop`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(cropData),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result: ApiResponse<ImageFile> = await response.json();
+
+        if (result.success) {
+          // Refresh list to show new image
+          await fetchImages();
+          return true;
+        } else {
+          throw new Error(result.error?.message || "Failed to crop image");
+        }
+      } catch (err) {
+        console.error("Failed to crop image:", err);
+        setError(err instanceof Error ? err.message : "Unknown error");
+        return false;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [fetchImages]
+  );
+
   const selectAll = useCallback(() => {
     if (selectedIds.size === images.length) {
       setSelectedIds(new Set());
@@ -223,6 +263,7 @@ export function useImageGallery() {
     total,
     deleteImage,
     setError,
+    cropImage,
   };
 }
 

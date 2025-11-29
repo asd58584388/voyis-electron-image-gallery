@@ -25,6 +25,7 @@ import {
 } from "../utils/image.utils.js";
 
 const router = Router();
+const STORAGE_PATH = process.env.STORAGE_PATH || "/app/uploads";
 
 /**
  * Create a single image resource
@@ -47,7 +48,6 @@ router.post(
   asyncHandler(async (req: Request, res: Response) => {
     const file = req.file!;
     const folderName = (req.body.folder_name as string) || "default";
-    const storagePath = process.env.STORAGE_PATH || "/app/uploads";
     const tempFilePath = file.path; // Temp file location from multer disk storage
     console.log("uploaded file", file);
     try {
@@ -85,14 +85,18 @@ router.post(
         file.originalname,
         fileHash
       );
-      const finalImagePath = path.join(storagePath, folderName, uniqueFilename);
+      const finalImagePath = path.join(
+        STORAGE_PATH,
+        folderName,
+        uniqueFilename
+      );
       // Change thumbnail extension to .webp
       const thumbnailFilename = `thumb_${uniqueFilename.replace(
         /\.[^/.]+$/,
         ""
       )}.webp`;
       const thumbnailPath = path.join(
-        storagePath,
+        STORAGE_PATH,
         folderName,
         "thumbnails",
         thumbnailFilename
@@ -356,6 +360,137 @@ router.patch(
     });
 
     sendSuccess(res, image);
+  })
+);
+
+/**
+ * Crop an image and save as new image
+ * POST /api/images/:id/crop
+ */
+router.post(
+  "/:id/crop",
+  validate([
+    param("id").isUUID(),
+    body("x").isNumeric(),
+    body("y").isNumeric(),
+    body("width").isNumeric(),
+    body("height").isNumeric(),
+  ]),
+  asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
+    const { x, y, width, height } = req.body;
+    const imageId = req.params.id;
+
+    const originalImage = await prisma.image.findUnique({
+      where: { id: imageId },
+    });
+
+    if (!originalImage) {
+      sendNotFound(res, "Image");
+      return;
+    }
+
+    const folderName = originalImage.folder_name || "default";
+
+    // Generate filename for cropped image using standard format (hash + timestamp)
+    // We'll calculate hash AFTER cropping, but need a temp filename first
+    const tempFilename = `temp_crop_${Date.now()}${path.extname(
+      originalImage.filename
+    )}`;
+    const tempPath = path.join(STORAGE_PATH, "temp", tempFilename);
+
+    // Ensure temp dir exists
+    const importFs = await import("fs/promises");
+    try {
+      await importFs.default.mkdir(path.dirname(tempPath), { recursive: true });
+    } catch (e) {}
+
+    try {
+      // Perform crop to temp location
+      await sharp(originalImage.path)
+        .extract({
+          left: Math.round(x),
+          top: Math.round(y),
+          width: Math.round(width),
+          height: Math.round(height),
+        })
+        .toFile(tempPath);
+
+      // Calculate hash of the new cropped image
+      const newFileHash = await calculateFileHash(tempPath);
+
+      // Generate standard unique filename based on hash
+      const originalMetadata = originalImage.metadata as Record<
+        string,
+        any
+      > | null;
+      const baseOriginalName =
+        originalMetadata?.originalName || originalImage.filename;
+      const croppedOriginalName = `cropped_${baseOriginalName}`;
+
+      const uniqueFilename = generateUniqueFilename(
+        croppedOriginalName,
+        newFileHash
+      );
+
+      const finalImagePath = path.join(
+        STORAGE_PATH,
+        folderName,
+        uniqueFilename
+      );
+      const thumbnailFilename = `thumb_${uniqueFilename.replace(
+        /\.[^/.]+$/,
+        ""
+      )}.webp`;
+      const thumbnailPath = path.join(
+        STORAGE_PATH,
+        folderName,
+        "thumbnails",
+        thumbnailFilename
+      );
+
+      // Move file to final location
+      await moveFile(tempPath, finalImagePath);
+
+      // Generate thumbnail for cropped image
+      await generateThumbnailFromPath(finalImagePath, thumbnailPath);
+
+      // Get new file stats
+      const stats = await fs.stat(finalImagePath);
+      const metadata = await getImageMetadataFromPath(finalImagePath);
+
+      const metadataPayload = {
+        ...metadata,
+        originalName: croppedOriginalName,
+      };
+
+      // Create new database record
+      const newImage = await prisma.image.create({
+        data: {
+          filename: uniqueFilename,
+          path: finalImagePath,
+          thumbnail_path: thumbnailPath,
+          folder_name: folderName,
+          size: stats.size,
+          mimetype: originalImage.mimetype,
+          filehash: newFileHash,
+          metadata: metadataPayload,
+        },
+      });
+
+      sendSuccess(res, newImage, 201);
+    } catch (error) {
+      console.error("Error cropping image:", error);
+      // Cleanup files if they were created
+      await deleteFileIfExists(tempPath);
+      // finalImagePath and thumbnailPath might not exist yet or are handled by moveFile/generateThumbnail
+
+      sendError(
+        res,
+        error instanceof Error ? error.message : "Failed to crop image",
+        500,
+        "CROP_FAILED"
+      );
+    }
   })
 );
 
