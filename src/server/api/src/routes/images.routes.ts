@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { body, param } from "express-validator";
 import path from "path";
+import sharp from "sharp";
 import { prisma } from "../lib/prisma.js";
 import { asyncHandler } from "../middleware/error.middleware.js";
 import {
@@ -84,7 +85,11 @@ router.post(
         fileHash
       );
       const finalImagePath = path.join(storagePath, folderName, uniqueFilename);
-      const thumbnailFilename = `thumb_${uniqueFilename}`;
+      // Change thumbnail extension to .webp
+      const thumbnailFilename = `thumb_${uniqueFilename.replace(
+        /\.[^/.]+$/,
+        ""
+      )}.webp`;
       const thumbnailPath = path.join(
         storagePath,
         folderName,
@@ -204,7 +209,7 @@ router.get(
 );
 
 /**
- * Get image by ID
+ * Get image content (streams the file)
  * GET /api/images/:id
  */
 router.get(
@@ -220,7 +225,50 @@ router.get(
       return;
     }
 
-    sendSuccess(res, image);
+    const filePath = image.path;
+    console.log("filePath", filePath);
+
+    // If image is TIFF, convert to WebP for browser compatibility
+    if (image.mimetype === "image/tiff") {
+      try {
+        res.set("Content-Type", "image/webp");
+
+        const pipeline = sharp(filePath)
+          .webp({ quality: 100 })
+          .on("error", (err) => {
+            console.error("Error converting TIFF to WebP:", err);
+            if (!res.headersSent) {
+              sendError(res, "Failed to process image", 500);
+            }
+          });
+
+        pipeline.pipe(res);
+      } catch (error) {
+        console.error("Error initializing sharp:", error);
+        sendError(res, "Internal image processing error", 500);
+      }
+    } else {
+      // For standard web images (JPG, PNG), stream directly
+      // Ensure we set the content type
+      res.setHeader("Content-Type", image.mimetype);
+
+      // Check if file exists before sending
+      try {
+        // Use path.resolve to ensure absolute path
+        const absolutePath = path.resolve(filePath);
+        res.sendFile(absolutePath, (err) => {
+          if (err) {
+            console.error("Error sending file:", err);
+            if (!res.headersSent) {
+              sendError(res, "Failed to retrieve image file", 500);
+            }
+          }
+        });
+      } catch (error) {
+        console.error("Error resolving file path:", error);
+        sendError(res, "Invalid file path", 500);
+      }
+    }
   })
 );
 

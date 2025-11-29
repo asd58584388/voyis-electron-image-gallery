@@ -11,21 +11,27 @@ const formatBytes = (bytes: number, decimals = 2) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
 };
 
+const API_BASE_URL = "http://localhost:3000/api";
 const STATIC_FILE_BASE_URL = "http://localhost:3000";
 
 export const getImageSrc = (image: ImageFile, useThumbnail = false) => {
   if (!image) return "";
-  const path =
-    useThumbnail && image.thumbnail_path
-      ? image.thumbnail_path
-      : image.filename;
-  // Assuming folder structure: /uploads/{folder_name}/{filename}
-  // and thumbnails: /uploads/{folder_name}/thumbnails/thumb_{filename}
 
   if (useThumbnail && image.thumbnail_path) {
-    return `${STATIC_FILE_BASE_URL}/uploads/${image.folder_name}/thumbnails/thumb_${image.filename}`;
+    // Thumbnails are now served directly via static file server as webp
+    // We need to construct the path to the webp thumbnail
+    // The thumbnail_path in DB is the absolute file path on server
+    // We need to extract the relative path part for the URL
+    // Assuming standard structure: .../uploads/{folder_name}/thumbnails/{filename}
+
+    // However, simpler approach for now is to assume the thumbnail filename pattern:
+    // thumb_{filename_without_ext}.webp
+    const filenameNoExt = image.filename.replace(/\.[^/.]+$/, "");
+    return `${STATIC_FILE_BASE_URL}/uploads/${image.folder_name}/thumbnails/thumb_${filenameNoExt}.webp`;
   }
-  return `${STATIC_FILE_BASE_URL}/uploads/${image.folder_name}/${image.filename}`;
+
+  // For full image, request via API to handle TIFF conversion
+  return `${API_BASE_URL}/images/${image.id}`;
 };
 
 export const getFormattedSize = (size: number) => formatBytes(size);

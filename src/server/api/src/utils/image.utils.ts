@@ -73,7 +73,9 @@ export async function getImageMetadataFromPath(filePath: string) {
     };
   } catch (error) {
     throw new Error(
-      `Failed to read image metadata: ${error instanceof Error ? error.message : "Unknown error"}`
+      `Failed to read image metadata: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
     );
   }
 }
@@ -97,11 +99,13 @@ export async function generateThumbnailFromPath(
         fit: "cover",
         position: "center",
       })
-      .jpeg({ quality: 80 })
+      .webp({ quality: 80 })
       .toFile(destPath);
   } catch (error) {
     throw new Error(
-      `Failed to generate thumbnail: ${error instanceof Error ? error.message : "Unknown error"}`
+      `Failed to generate thumbnail: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
     );
   }
 }
