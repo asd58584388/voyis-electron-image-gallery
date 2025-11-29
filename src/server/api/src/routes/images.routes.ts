@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { body, param } from "express-validator";
 import path from "path";
 import sharp from "sharp";
+import fs from "fs/promises";
 import { prisma } from "../lib/prisma.js";
 import { asyncHandler } from "../middleware/error.middleware.js";
 import {
@@ -230,27 +231,71 @@ router.get(
 
     // If image is TIFF, convert to WebP for browser compatibility
     if (image.mimetype === "image/tiff") {
+      const previewFilename = `preview_${path.basename(
+        filePath,
+        path.extname(filePath)
+      )}.webp`;
+      const previewDir = path.join(path.dirname(filePath), "previews");
+      const previewPath = path.join(previewDir, previewFilename);
+
+      // Add caching headers
+      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+
       try {
+        // Check if cached preview exists
+        try {
+          const importFs = await import("fs/promises");
+          await importFs.default.access(previewPath);
+
+          // Serve cached file
+          res.setHeader("Content-Type", "image/webp");
+          res.sendFile(previewPath);
+          return;
+        } catch {
+          // Preview doesn't exist, continue to generate
+        }
+
         res.set("Content-Type", "image/webp");
 
-        const pipeline = sharp(filePath)
-          .webp({ quality: 100 })
-          .on("error", (err) => {
-            console.error("Error converting TIFF to WebP:", err);
-            if (!res.headersSent) {
-              sendError(res, "Failed to process image", 500);
-            }
-          });
+        // Ensure preview directory exists
+        const importFs = await import("fs/promises");
+        try {
+          await importFs.default.mkdir(previewDir, { recursive: true });
+        } catch (e) {
+          // Ignore error if directory already exists
+        }
 
-        pipeline.pipe(res);
+        // Generate preview, save to file, and stream to response
+        const pipeline = sharp(filePath).webp({ quality: 100 });
+
+        // Save to file in background (fire and forget essentially, or we can wait)
+        // Ideally we want to serve it as fast as possible.
+        // We can pipe to response AND file, but piping to file is a Writable stream.
+        // A Cloneable stream is needed.
+
+        // Better approach for first load: just pipe to response.
+        // But we want to cache it.
+
+        await pipeline.toFile(previewPath);
+        res.sendFile(previewPath);
       } catch (error) {
-        console.error("Error initializing sharp:", error);
-        sendError(res, "Internal image processing error", 500);
+        console.error("Error processing/caching TIFF preview:", error);
+        // Fallback: try to stream directly if file writing failed
+        try {
+          const fallbackPipeline = sharp(filePath).webp({ quality: 100 });
+          fallbackPipeline.pipe(res);
+        } catch (fallbackError) {
+          if (!res.headersSent) {
+            sendError(res, "Internal image processing error", 500);
+          }
+        }
       }
     } else {
       // For standard web images (JPG, PNG), stream directly
       // Ensure we set the content type
       res.setHeader("Content-Type", image.mimetype);
+      // Add caching headers
+      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
 
       // Check if file exists before sending
       try {
