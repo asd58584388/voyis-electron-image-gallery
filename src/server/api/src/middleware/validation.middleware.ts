@@ -29,17 +29,24 @@ export function validatePagination(
   res: Response,
   next: NextFunction
 ): void {
-  const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 50;
+  if (!req.query.page || !req.query.limit) {
+    sendValidationError(res, [
+      { msg: "Page and limit are required", param: "page" },
+    ]);
+    return;
+  }
 
-  if (page < 1) {
+  const page = parseInt(req.query.page as string);
+  const limit = parseInt(req.query.limit as string);
+
+  if (!page || page < 1) {
     sendValidationError(res, [
       { msg: "Page must be greater than 0", param: "page" },
     ]);
     return;
   }
 
-  if (limit < 1 || limit > 100) {
+  if (!limit || limit < 1 || limit > 100) {
     sendValidationError(res, [
       { msg: "Limit must be between 1 and 100", param: "limit" },
     ]);

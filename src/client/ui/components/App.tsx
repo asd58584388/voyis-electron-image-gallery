@@ -18,6 +18,12 @@ export default function App() {
     handleUpload,
     toggleSelection,
     selectAll,
+    loading,
+    page,
+    totalPages,
+    nextPage,
+    prevPage,
+    total,
   } = useImageGallery();
 
   const { logs, addLog } = useLogs();
@@ -27,8 +33,8 @@ export default function App() {
   const [isBottomPanelOpen, setIsBottomPanelOpen] = useState(true);
 
   const onUpload = () => {
-    const newImage = handleUpload();
-    addLog(`Uploaded file: ${newImage.name}`, "success");
+    handleUpload();
+    addLog("Refreshed image list after upload", "success");
   };
 
   const onSelectAll = () => {
@@ -66,7 +72,7 @@ export default function App() {
         {/* Center Panel */}
         <CenterPanel
           images={filteredImages}
-          totalImages={images.length}
+          totalImages={total}
           viewMode={viewMode}
           setViewMode={setViewMode}
           selectedIds={selectedIds}
@@ -79,6 +85,11 @@ export default function App() {
           setActiveId={setActiveId}
           isLeftPanelOpen={isLeftPanelOpen}
           onToggleLeftPanel={() => setIsLeftPanelOpen(!isLeftPanelOpen)}
+          loading={loading}
+          page={page}
+          totalPages={totalPages}
+          onNextPage={nextPage}
+          onPrevPage={prevPage}
         />
       </div>
 

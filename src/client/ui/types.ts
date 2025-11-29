@@ -1,11 +1,35 @@
+export interface ExifData {
+  hasExif: boolean;
+  orientation?: number;
+  [key: string]: any;
+}
+
+export interface ImageMetadata {
+  width?: number;
+  height?: number;
+  format?: string;
+  space?: string;
+  channels?: number;
+  depth?: string;
+  density?: number;
+  hasAlpha?: boolean;
+  exif?: ExifData | null;
+  originalName: string;
+}
+
 export interface ImageFile {
   id: string;
-  name: string;
-  url: string;
-  type: string;
-  size: string;
-  date: string;
-  dimensions: string;
+  filename: string;
+  path: string;
+  thumbnail_path: string | null;
+  folder_name: string;
+  size: number;
+  mimetype: string;
+  filehash: string;
+  metadata: ImageMetadata | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
 }
 
 export interface LogEntry {
@@ -17,3 +41,13 @@ export interface LogEntry {
 
 export type ViewMode = "gallery" | "single";
 export type FilterType = "all" | "jpeg" | "png";
+
+export interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  meta?: {
+    total: number;
+    page: number;
+    limit: number;
+  };
+}

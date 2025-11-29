@@ -47,13 +47,14 @@ router.post(
     const folderName = (req.body.folder_name as string) || "default";
     const storagePath = process.env.STORAGE_PATH || "/app/uploads";
     const tempFilePath = file.path; // Temp file location from multer disk storage
-
+    console.log("uploaded file", file);
     try {
       // Step 1: Validate image integrity FIRST (fail fast for corrupted images)
       // Extract metadata from disk - if this fails, image is corrupted
       let metadata;
       try {
         metadata = await getImageMetadataFromPath(tempFilePath);
+        console.log("file metadata", metadata);
       } catch (metadataError) {
         await deleteFileIfExists(tempFilePath);
         sendError(res, "Corrupted or invalid image file", 400, "INVALID_IMAGE");
@@ -97,7 +98,11 @@ router.post(
       } catch (thumbnailError) {
         await deleteFileIfExists(tempFilePath);
         throw new Error(
-          `Failed to generate thumbnail: ${thumbnailError instanceof Error ? thumbnailError.message : "Unknown error"}`
+          `Failed to generate thumbnail: ${
+            thumbnailError instanceof Error
+              ? thumbnailError.message
+              : "Unknown error"
+          }`
         );
       }
 
@@ -109,7 +114,9 @@ router.post(
         await deleteFileIfExists(thumbnailPath);
         await deleteFileIfExists(tempFilePath);
         throw new Error(
-          `Failed to move file: ${moveError instanceof Error ? moveError.message : "Unknown error"}`
+          `Failed to move file: ${
+            moveError instanceof Error ? moveError.message : "Unknown error"
+          }`
         );
       }
 
@@ -129,7 +136,7 @@ router.post(
           size: file.size,
           mimetype: file.mimetype,
           filehash: fileHash,
-          metadata: metadataPayload as any,
+          metadata: metadataPayload,
         },
       });
 
@@ -156,8 +163,8 @@ router.get(
   "/",
   validatePagination,
   asyncHandler(async (req: Request, res: Response) => {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 50;
+    const page = parseInt(req.query.page as string);
+    const limit = parseInt(req.query.limit as string);
     const folderName = req.query.folder_name as string;
     const mimetype = req.query.mimetype as string;
     const includeDeleted = req.query.include_deleted === "true";
@@ -183,7 +190,7 @@ router.get(
         where,
         skip,
         take: limit,
-        orderBy: { created_at: "desc" },
+        orderBy: { updated_at: "desc" },
       }),
       prisma.image.count({ where }),
     ]);

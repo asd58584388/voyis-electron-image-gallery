@@ -1,6 +1,12 @@
 import React from "react";
 import { ImageFile } from "../types";
 import { Button } from "./common";
+import {
+  getImageSrc,
+  getFormattedSize,
+  getFormattedDate,
+  getDimensions,
+} from "../utils";
 
 interface LeftPanelProps {
   onUpload: () => void;
@@ -50,7 +56,7 @@ export default function LeftPanel({
                   File Name
                 </label>
                 <div className="text-sm font-medium text-gray-900 break-all">
-                  {activeImage.name}
+                  {activeImage.metadata?.originalName || activeImage.filename}
                 </div>
               </div>
 
@@ -60,7 +66,7 @@ export default function LeftPanel({
                     Type
                   </label>
                   <div className="text-sm text-gray-700">
-                    {activeImage.type.split("/")[1].toUpperCase()}
+                    {activeImage.mimetype.split("/")[1].toUpperCase()}
                   </div>
                 </div>
                 <div>
@@ -68,7 +74,7 @@ export default function LeftPanel({
                     Size
                   </label>
                   <div className="text-sm text-gray-700">
-                    {activeImage.size}
+                    {getFormattedSize(activeImage.size)}
                   </div>
                 </div>
               </div>
@@ -78,7 +84,7 @@ export default function LeftPanel({
                   Dimensions
                 </label>
                 <div className="text-sm text-gray-700">
-                  {activeImage.dimensions}
+                  {getDimensions(activeImage)}
                 </div>
               </div>
 
@@ -86,13 +92,15 @@ export default function LeftPanel({
                 <label className="block text-xs text-gray-500 mb-1">
                   Date Modified
                 </label>
-                <div className="text-sm text-gray-700">{activeImage.date}</div>
+                <div className="text-sm text-gray-700">
+                  {getFormattedDate(activeImage.created_at)}
+                </div>
               </div>
 
               <div className="pt-4 border-t border-gray-100">
                 <div className="bg-gray-100 rounded p-2 flex items-center justify-center h-32 overflow-hidden">
                   <img
-                    src={activeImage.url}
+                    src={getImageSrc(activeImage, true)}
                     alt="Preview"
                     className="max-h-full max-w-full object-contain opacity-75"
                   />

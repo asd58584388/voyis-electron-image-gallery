@@ -18,7 +18,11 @@ const STORAGE_PATH = process.env.STORAGE_PATH || "/app/uploads";
 /**
  * Security middleware
  */
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
 app.use(
   cors({
     origin: process.env.CORS_ORIGIN || "*",
