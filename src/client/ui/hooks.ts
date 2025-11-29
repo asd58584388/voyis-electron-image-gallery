@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { ImageFile, LogEntry, FilterType, ApiResponse } from "./types";
+import { ImageFile, LogEntry, FilterType, ApiResponse } from "../types";
 
 const API_BASE_URL = "http://localhost:3000/api";
 
@@ -222,6 +222,7 @@ export function useImageGallery() {
     prevPage,
     total,
     deleteImage,
+    setError,
   };
 }
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { ImageFile, ViewMode, FilterType } from "../types";
+import { ImageFile, ViewMode, FilterType } from "../../types";
 import { Button, Badge } from "./common";
 import { getImageSrc, getFormattedSize, getDimensions } from "../utils";
 

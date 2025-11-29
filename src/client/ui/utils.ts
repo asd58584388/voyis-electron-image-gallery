@@ -1,5 +1,5 @@
 import React from "react";
-import { ImageFile } from "./types";
+import { ImageFile } from "../types";
 
 // Helper function to format bytes
 const formatBytes = (bytes: number, decimals = 2) => {

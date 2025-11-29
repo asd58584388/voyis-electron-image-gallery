@@ -1,5 +1,5 @@
 import React from "react";
-import { ImageFile } from "../types";
+import { ImageFile } from "../../types";
 import { Button } from "./common";
 import {
   getImageSrc,
