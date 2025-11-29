@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { ImageFile, ViewMode, FilterType } from "../types";
 import { Button, Badge } from "./common";
 import { getImageSrc, getFormattedSize, getDimensions } from "../utils";
@@ -14,6 +14,7 @@ interface CenterPanelProps {
   onSelectionChange: (id: string, multi: boolean) => void;
   onSelectAll: () => void;
   onExport: () => void;
+  onDelete: (id: string) => void;
   activeId: string | null;
   setActiveId: (id: string | null) => void;
   isLeftPanelOpen: boolean;
@@ -36,6 +37,7 @@ export default function CenterPanel({
   onSelectionChange,
   onSelectAll,
   onExport,
+  onDelete,
   activeId,
   setActiveId,
   isLeftPanelOpen,
@@ -47,14 +49,52 @@ export default function CenterPanel({
   onPrevPage,
 }: CenterPanelProps) {
   const activeImage = images.find((img) => img.id === activeId);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    id: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const handleClick = () => setContextMenu(null);
+    window.addEventListener("click", handleClick);
+    return () => window.removeEventListener("click", handleClick);
+  }, []);
 
   const handleThumbnailClick = (e: React.MouseEvent, id: string) => {
     const isMulti = e.metaKey || e.ctrlKey || e.shiftKey;
     onSelectionChange(id, isMulti);
   };
 
+  const handleContextMenu = (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, id });
+  };
+
   return (
-    <div className="flex-1 flex flex-col bg-gray-100 overflow-hidden transition-all duration-300">
+    <div className="flex-1 flex flex-col bg-gray-100 overflow-hidden transition-all duration-300 relative">
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          className="fixed bg-white shadow-lg rounded-md border border-gray-200 z-50 py-1 min-w-[120px]"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+        >
+          <button
+            className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (
+                window.confirm("Are you sure you want to delete this image?")
+              ) {
+                onDelete(contextMenu.id);
+              }
+              setContextMenu(null);
+            }}
+          >
+            Delete
+          </button>
+        </div>
+      )}
       {/* Toolbar */}
       <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-sm z-10">
         <div className="flex items-center gap-4">
@@ -167,6 +207,7 @@ export default function CenterPanel({
                     setActiveId(image.id);
                     setViewMode("single");
                   }}
+                  onContextMenu={(e) => handleContextMenu(e, image.id)}
                   className={`group relative bg-white rounded-lg shadow-sm border-2 overflow-hidden cursor-pointer transition-all hover:shadow-md ${
                     selectedIds.has(image.id)
                       ? "border-blue-500 ring-2 ring-blue-200"

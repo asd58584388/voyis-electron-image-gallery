@@ -45,6 +45,11 @@ export type FilterType = "all" | "jpeg" | "png";
 export interface ApiResponse<T> {
   success: boolean;
   data: T;
+  error?: {
+    message: string;
+    code?: string;
+    details?: any;
+  };
   meta?: {
     total: number;
     page: number;

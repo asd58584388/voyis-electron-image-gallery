@@ -24,6 +24,7 @@ export default function App() {
     nextPage,
     prevPage,
     total,
+    deleteImage,
   } = useImageGallery();
 
   const { logs, addLog } = useLogs();
@@ -57,6 +58,15 @@ export default function App() {
     }, 1000);
   };
 
+  const onDelete = async (id: string) => {
+    const success = await deleteImage(id);
+    if (success) {
+      addLog("Image deleted successfully", "success");
+    } else {
+      addLog("Failed to delete image", "error");
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen bg-gray-100 text-gray-800 overflow-hidden font-sans">
       {/* Main Content Area */}
@@ -81,6 +91,7 @@ export default function App() {
           onSelectionChange={toggleSelection}
           onSelectAll={onSelectAll}
           onExport={onExport}
+          onDelete={onDelete}
           activeId={activeId}
           setActiveId={setActiveId}
           isLeftPanelOpen={isLeftPanelOpen}
