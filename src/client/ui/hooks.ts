@@ -34,8 +34,8 @@ export function useImageGallery() {
 
       if (result.success) {
         setImages(result.data);
-        if (result.meta) {
-          setTotal(result.meta.total);
+        if (result.metadata?.total !== undefined) {
+          setTotal(result.metadata.total);
         }
       } else {
         throw new Error("API returned unsuccessful response");

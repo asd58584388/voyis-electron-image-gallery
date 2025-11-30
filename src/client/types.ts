@@ -50,9 +50,10 @@ export interface ApiResponse<T> {
     code?: string;
     details?: any;
   };
-  meta?: {
-    total: number;
-    page: number;
-    limit: number;
+  metadata?: {
+    total?: number;
+    page?: number;
+    limit?: number;
+    timestamp?: string;
   };
 }
