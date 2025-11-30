@@ -30,6 +30,7 @@ interface CenterPanelProps {
     id: string,
     cropData: { x: number; y: number; width: number; height: number }
   ) => Promise<boolean>;
+  onRefresh: () => void;
 }
 
 export default function CenterPanel({
@@ -54,6 +55,7 @@ export default function CenterPanel({
   onNextPage,
   onPrevPage,
   onCrop,
+  onRefresh,
 }: CenterPanelProps) {
   const activeImage = images.find((img) => img.id === activeId);
   const [contextMenu, setContextMenu] = useState<{
@@ -204,6 +206,14 @@ export default function CenterPanel({
         </div>
 
         <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onRefresh}
+            disabled={loading}
+          >
+            Sync
+          </Button>
           <Button variant="ghost" size="sm" onClick={onSelectAll}>
             {selectedIds.size === totalImages && totalImages > 0
               ? "Deselect All"

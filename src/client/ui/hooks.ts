@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { ImageFile, LogEntry, FilterType, ApiResponse } from "../types";
 
 const API_BASE_URL = "http://localhost:3000/api";
+const DEFAULT_LIMIT = 50;
 
 export function useImageGallery() {
   const [images, setImages] = useState<ImageFile[]>([]);
@@ -13,40 +14,51 @@ export function useImageGallery() {
 
   // Pagination state
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(50);
+  const [limit, setLimit] = useState(DEFAULT_LIMIT);
   const [total, setTotal] = useState(0);
 
-  const fetchImages = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      let url = `${API_BASE_URL}/images?page=${page}&limit=${limit}`;
-      if (filterType !== "all") {
-        url += `&mimetype=image/${filterType}`;
-      }
+  const fetchImages = useCallback(
+    async (params?: {
+      page?: number;
+      limit?: number;
+      filterType?: FilterType;
+    }) => {
+      const fetchPage = params?.page ?? page;
+      const fetchLimit = params?.limit ?? limit;
+      const fetchFilter = params?.filterType ?? filterType;
 
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result: ApiResponse<ImageFile[]> = await response.json();
-
-      if (result.success) {
-        setImages(result.data);
-        if (result.metadata?.total !== undefined) {
-          setTotal(result.metadata.total);
+      setLoading(true);
+      setError(null);
+      try {
+        let url = `${API_BASE_URL}/images?page=${fetchPage}&limit=${fetchLimit}`;
+        if (fetchFilter !== "all") {
+          url += `&mimetype=image/${fetchFilter}`;
         }
-      } else {
-        throw new Error("API returned unsuccessful response");
+
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result: ApiResponse<ImageFile[]> = await response.json();
+
+        if (result.success) {
+          setImages(result.data);
+          if (result.metadata?.total !== undefined) {
+            setTotal(result.metadata.total);
+          }
+        } else {
+          throw new Error("API returned unsuccessful response");
+        }
+      } catch (err) {
+        console.error("Failed to fetch images:", err);
+        setError(err instanceof Error ? err.message : "Unknown error");
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      console.error("Failed to fetch images:", err);
-      setError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setLoading(false);
-    }
-  }, [page, limit, filterType]);
+    },
+    [page, limit, filterType]
+  );
 
   // Fetch when dependencies change
   useEffect(() => {
@@ -241,6 +253,13 @@ export function useImageGallery() {
     if (page > 1) setPage((p) => p - 1);
   }, [page]);
 
+  const syncGallery = useCallback(() => {
+    setFilterType("all");
+    setPage(1);
+    setLimit(DEFAULT_LIMIT);
+    fetchImages({ page: 1, limit: DEFAULT_LIMIT, filterType: "all" });
+  }, [fetchImages]);
+
   return {
     images,
     filteredImages,
@@ -265,6 +284,7 @@ export function useImageGallery() {
     setError,
     cropImage,
     refresh: fetchImages,
+    sync: syncGallery,
   };
 }
 

@@ -28,6 +28,7 @@ export default function App() {
     deleteImage,
     cropImage, // Add cropImage
     refresh,
+    sync,
   } = useImageGallery();
 
   const { logs, addLog } = useLogs();
@@ -65,6 +66,11 @@ export default function App() {
       await window.electronAPI.batchUpload();
       refresh();
     }
+  };
+
+  const onSync = () => {
+    sync();
+    addLog("Reset filters and synchronized gallery", "info");
   };
 
   const onSelectAll = () => {
@@ -153,6 +159,7 @@ export default function App() {
           totalPages={totalPages}
           onNextPage={nextPage}
           onPrevPage={prevPage}
+          onRefresh={onSync}
         />
       </div>
 
