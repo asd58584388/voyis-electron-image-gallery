@@ -1,4 +1,4 @@
-import { ImageFile } from "./types";
+import { ImageFile, IPCMessage } from "./types";
 
 export {}; // Make this a module
 
@@ -17,10 +17,10 @@ declare global {
       ) => Promise<void>;
       selectFolder: () => Promise<string | undefined>;
       batchUpload: () => Promise<void>;
-      onExportProgress: (callback: (message: string) => void) => void;
-      onExportComplete: (callback: (message: string) => void) => void;
-      onBatchUploadProgress: (callback: (message: string) => void) => void;
-      onBatchUploadComplete: (callback: (message: string) => void) => void;
+      onExportProgress: (callback: (data: IPCMessage) => void) => void;
+      onExportComplete: (callback: (data: IPCMessage) => void) => void;
+      onBatchUploadProgress: (callback: (data: IPCMessage) => void) => void;
+      onBatchUploadComplete: (callback: (data: IPCMessage) => void) => void;
     };
   }
 }

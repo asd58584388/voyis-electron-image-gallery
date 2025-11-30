@@ -42,6 +42,11 @@ export interface LogEntry {
 export type ViewMode = "gallery" | "single";
 export type FilterType = "all" | "jpeg" | "png";
 
+export interface IPCMessage {
+  message: string;
+  type: "info" | "success" | "error";
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;

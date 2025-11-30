@@ -38,17 +38,17 @@ export default function App() {
   useEffect(() => {
     // Setup IPC listeners
     if (window.electronAPI) {
-      window.electronAPI.onExportProgress((message) => {
-        addLog(message, "info");
+      window.electronAPI.onExportProgress((data) => {
+        addLog(data.message, data.type);
       });
-      window.electronAPI.onExportComplete((message) => {
-        addLog(message, "success");
+      window.electronAPI.onExportComplete((data) => {
+        addLog(data.message, data.type);
       });
-      window.electronAPI.onBatchUploadProgress((message) => {
-        addLog(message, "info");
+      window.electronAPI.onBatchUploadProgress((data) => {
+        addLog(data.message, data.type);
       });
-      window.electronAPI.onBatchUploadComplete((message) => {
-        addLog(message, "success");
+      window.electronAPI.onBatchUploadComplete((data) => {
+        addLog(data.message, data.type);
       });
     } else {
       addLog("Electron API not available", "error");

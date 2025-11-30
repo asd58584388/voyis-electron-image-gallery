@@ -96,18 +96,18 @@ export function setupHandlers(mainWindow: BrowserWindow) {
           });
 
           completed++;
-          mainWindow.webContents.send(
-            "export-progress",
-            `Downloaded ${completed}/${total}: ${path.basename(filePath)}`
-          );
+          mainWindow.webContents.send("export-progress", {
+            message: `Downloaded ${completed}/${total}: ${path.basename(filePath)}`,
+            type: "info" as const,
+          });
         } catch (error) {
           console.error(`Failed to download image ${image.id}:`, error);
-          mainWindow.webContents.send(
-            "export-progress",
-            `Failed ${image.metadata?.originalName || image.filename}: ${
+          mainWindow.webContents.send("export-progress", {
+            message: `Failed ${image.metadata?.originalName || image.filename}: ${
               error instanceof Error ? error.message : "Unknown error"
-            }`
-          );
+            }`,
+            type: "error" as const,
+          });
         }
       };
 
@@ -131,10 +131,10 @@ export function setupHandlers(mainWindow: BrowserWindow) {
 
       await Promise.all(workers);
 
-      mainWindow.webContents.send(
-        "export-complete",
-        `Successfully downloaded ${completed} images to ${targetFolder}`
-      );
+      mainWindow.webContents.send("export-complete", {
+        message: `Successfully downloaded ${completed} images to ${targetFolder}`,
+        type: "success" as const,
+      });
     }
   );
 
@@ -156,17 +156,17 @@ export function setupHandlers(mainWindow: BrowserWindow) {
       if (Array.isArray(parsed)) {
         config = parsed;
       } else {
-        mainWindow.webContents.send(
-          "batch-upload-progress",
-          "Invalid config format: expected an array"
-        );
+        mainWindow.webContents.send("batch-upload-progress", {
+          message: "Invalid config format: expected an array",
+          type: "error" as const,
+        });
         return;
       }
     } catch (err) {
-      mainWindow.webContents.send(
-        "batch-upload-progress",
-        "Failed to parse config file"
-      );
+      mainWindow.webContents.send("batch-upload-progress", {
+        message: "Failed to parse config file",
+        type: "error" as const,
+      });
       return;
     }
 
@@ -183,10 +183,10 @@ export function setupHandlers(mainWindow: BrowserWindow) {
       try {
         await fs.promises.access(folder);
       } catch {
-        mainWindow.webContents.send(
-          "batch-upload-progress",
-          `Skipping missing folder: ${folder}`
-        );
+        mainWindow.webContents.send("batch-upload-progress", {
+          message: `Skipping missing folder: ${folder}`,
+          type: "error" as const,
+        });
         continue;
       }
 
@@ -202,25 +202,25 @@ export function setupHandlers(mainWindow: BrowserWindow) {
           }
         }
       } catch (err) {
-        mainWindow.webContents.send(
-          "batch-upload-progress",
-          `Error reading folder ${folder}: ${err}`
-        );
+        mainWindow.webContents.send("batch-upload-progress", {
+          message: `Error reading folder ${folder}: ${err}`,
+          type: "error" as const,
+        });
       }
     }
 
     const totalFiles = allFiles.length;
     if (totalFiles === 0) {
-      mainWindow.webContents.send(
-        "batch-upload-progress",
-        "No files to upload"
-      );
+      mainWindow.webContents.send("batch-upload-progress", {
+        message: "No files to upload",
+        type: "info" as const,
+      });
       return;
     }
-    mainWindow.webContents.send(
-      "batch-upload-progress",
-      `Found ${totalFiles} files to upload. Starting...`
-    );
+    mainWindow.webContents.send("batch-upload-progress", {
+      message: `Found ${totalFiles} files to upload. Starting...`,
+      type: "info" as const,
+    });
 
     // 2. Upload Phase (Parallel)
     const CONCURRENCY_LIMIT = 5;
@@ -266,21 +266,26 @@ export function setupHandlers(mainWindow: BrowserWindow) {
             // If JSON parsing fails, stick to generic message or status text
             errorMessage = `Failed: ${fileInfo.name} - ${response.statusText}`;
           }
-          mainWindow.webContents.send("batch-upload-progress", errorMessage);
+          mainWindow.webContents.send("batch-upload-progress", {
+            message: errorMessage,
+            type: "error" as const,
+          });
         }
       } catch (err) {
         failCount++;
-        mainWindow.webContents.send(
-          "batch-upload-progress",
-          `Error uploading ${fileInfo.name}: ${err instanceof Error ? err.message : String(err)}`
-        );
+        mainWindow.webContents.send("batch-upload-progress", {
+          message: `Error uploading ${fileInfo.name}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+          type: "error" as const,
+        });
       } finally {
         processed++;
         if (processed % 5 === 0 || processed === totalFiles) {
-          mainWindow.webContents.send(
-            "batch-upload-progress",
-            `Processed ${processed}/${totalFiles}`
-          );
+          mainWindow.webContents.send("batch-upload-progress", {
+            message: `Processed ${processed}/${totalFiles}`,
+            type: "info" as const,
+          });
         }
       }
     };
@@ -301,9 +306,10 @@ export function setupHandlers(mainWindow: BrowserWindow) {
 
     await Promise.all(workers);
 
-    mainWindow.webContents.send(
-      "batch-upload-complete",
-      `Batch upload complete. Success: ${successCount}, Failed: ${failCount}, Total Size: ${(totalSize / 1024 / 1024).toFixed(2)} MB`
-    );
+    const hasErrors = failCount > 0;
+    mainWindow.webContents.send("batch-upload-complete", {
+      message: `Batch upload complete. Success: ${successCount}, Failed: ${failCount}, Total Size: ${(totalSize / 1024 / 1024).toFixed(2)} MB`,
+      type: hasErrors ? ("error" as const) : ("success" as const),
+    });
   });
 }
