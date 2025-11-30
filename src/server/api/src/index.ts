@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import compression from "compression";
 import morgan from "morgan";
+import path from "node:path";
 import "dotenv/config";
 import {
   errorHandler,
@@ -14,6 +15,11 @@ import { ensureDirectoryExists } from "./utils/image.utils.js";
 const app = express();
 const PORT = process.env.PORT || 3000;
 const STORAGE_PATH = process.env.STORAGE_PATH || "/app/uploads";
+const DEFAULT_THUMBNAIL_CACHE_SECONDS = 60 * 60 * 24 * 30; // 30 days
+const configuredCacheSeconds = Number(process.env.THUMBNAIL_CACHE_MAX_AGE);
+const THUMBNAIL_CACHE_SECONDS = Number.isFinite(configuredCacheSeconds)
+  ? configuredCacheSeconds
+  : DEFAULT_THUMBNAIL_CACHE_SECONDS;
 
 /**
  * Security middleware
@@ -55,7 +61,22 @@ app.use("/api/images", imagesRoutes);
 /**
  * Static file serving for uploaded images
  */
-app.use("/uploads", express.static(STORAGE_PATH));
+app.use(
+  "/uploads",
+  express.static(STORAGE_PATH, {
+    setHeaders: (res, servedPath) => {
+      const normalizedPath = path.normalize(servedPath);
+      if (normalizedPath.split(path.sep).includes("thumbnails")) {
+        res.setHeader(
+          "Cache-Control",
+          `public, max-age=${THUMBNAIL_CACHE_SECONDS}, immutable`
+        );
+      } else {
+        res.setHeader("Cache-Control", "public, max-age=0, must-revalidate");
+      }
+    },
+  })
+);
 
 /**
  * Root endpoint
