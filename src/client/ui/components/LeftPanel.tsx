@@ -1,5 +1,5 @@
-import React from "react";
-import { ImageFile } from "../../types";
+import React, { useRef } from "react";
+import { ApiResponse, ImageFile } from "../../types";
 import { Button } from "./common";
 import {
   getImageSrc,
@@ -9,20 +9,47 @@ import {
 } from "../utils";
 
 interface LeftPanelProps {
-  onUpload: () => void;
+  handleUpload: (file: File) => Promise<ApiResponse<ImageFile>>;
   onBatchUpload?: () => void;
   activeImage?: ImageFile;
   selectedCount: number;
   isOpen: boolean;
+  addLog: (message: string, type: "info" | "success" | "error") => void;
 }
 
 export default function LeftPanel({
-  onUpload,
+  handleUpload,
   onBatchUpload,
   activeImage,
   selectedCount,
   isOpen,
+  addLog,
 }: LeftPanelProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleUploadChange = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0] || null;
+    event.target.value = "";
+
+    if (!file) {
+      addLog("Upload cancelled", "info");
+      return;
+    }
+
+    const result = await handleUpload(file);
+    if (result.success) {
+      const uploadedName =
+        result.data?.metadata?.originalName ||
+        result.data?.filename ||
+        file.name;
+      addLog(`Uploaded ${uploadedName}`, "success");
+    } else {
+      addLog(result.error?.message || "Failed to upload image", "error");
+    }
+  };
+
   return (
     <div
       className={`${
@@ -34,10 +61,25 @@ export default function LeftPanel({
           <h2 className="text-lg font-semibold text-gray-700 mb-4">
             Gallery Actions
           </h2>
-          <Button onClick={onUpload} variant="primary" className="w-full">
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            variant="primary"
+            className="w-full"
+          >
             <span>Upload Image</span>
           </Button>
-          <Button onClick={onBatchUpload} variant="primary" className="w-full mt-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/tiff"
+            className="hidden"
+            onChange={handleUploadChange}
+          />
+          <Button
+            onClick={onBatchUpload}
+            variant="primary"
+            className="w-full mt-2"
+          >
             <span>Batch Upload</span>
           </Button>
         </div>

@@ -22,7 +22,7 @@ import { ImageFile } from "../types";
 // Define base URL for API requests
 const BASE_URL = "http://localhost:3000";
 
-export function setupExportHandlers(mainWindow: BrowserWindow) {
+export function setupHandlers(mainWindow: BrowserWindow) {
   // Handle folder selection
   ipcMain.handle("select-folder", async () => {
     const result = await dialog.showOpenDialog(mainWindow, {
@@ -156,11 +156,17 @@ export function setupExportHandlers(mainWindow: BrowserWindow) {
       if (Array.isArray(parsed)) {
         config = parsed;
       } else {
-        mainWindow.webContents.send("batch-upload-progress", "Invalid config format: expected an array");
+        mainWindow.webContents.send(
+          "batch-upload-progress",
+          "Invalid config format: expected an array"
+        );
         return;
       }
     } catch (err) {
-      mainWindow.webContents.send("batch-upload-progress", "Failed to parse config file");
+      mainWindow.webContents.send(
+        "batch-upload-progress",
+        "Failed to parse config file"
+      );
       return;
     }
 
@@ -177,7 +183,10 @@ export function setupExportHandlers(mainWindow: BrowserWindow) {
       try {
         await fs.promises.access(folder);
       } catch {
-        mainWindow.webContents.send("batch-upload-progress", `Skipping missing folder: ${folder}`);
+        mainWindow.webContents.send(
+          "batch-upload-progress",
+          `Skipping missing folder: ${folder}`
+        );
         continue;
       }
 
@@ -193,12 +202,25 @@ export function setupExportHandlers(mainWindow: BrowserWindow) {
           }
         }
       } catch (err) {
-        mainWindow.webContents.send("batch-upload-progress", `Error reading folder ${folder}: ${err}`);
+        mainWindow.webContents.send(
+          "batch-upload-progress",
+          `Error reading folder ${folder}: ${err}`
+        );
       }
     }
 
     const totalFiles = allFiles.length;
-    mainWindow.webContents.send("batch-upload-progress", `Found ${totalFiles} files to upload. Starting...`);
+    if (totalFiles === 0) {
+      mainWindow.webContents.send(
+        "batch-upload-progress",
+        "No files to upload"
+      );
+      return;
+    }
+    mainWindow.webContents.send(
+      "batch-upload-progress",
+      `Found ${totalFiles} files to upload. Starting...`
+    );
 
     // 2. Upload Phase (Parallel)
     const CONCURRENCY_LIMIT = 5;
@@ -209,7 +231,7 @@ export function setupExportHandlers(mainWindow: BrowserWindow) {
       try {
         const stats = await fs.promises.stat(fileInfo.path);
         const buffer = await fs.promises.readFile(fileInfo.path);
-        
+
         // Determine mime type based on extension
         const ext = path.extname(fileInfo.name).toLowerCase();
         let mimeType: string;
@@ -248,11 +270,17 @@ export function setupExportHandlers(mainWindow: BrowserWindow) {
         }
       } catch (err) {
         failCount++;
-        mainWindow.webContents.send("batch-upload-progress", `Error uploading ${fileInfo.name}: ${err instanceof Error ? err.message : String(err)}`);
+        mainWindow.webContents.send(
+          "batch-upload-progress",
+          `Error uploading ${fileInfo.name}: ${err instanceof Error ? err.message : String(err)}`
+        );
       } finally {
         processed++;
         if (processed % 5 === 0 || processed === totalFiles) {
-           mainWindow.webContents.send("batch-upload-progress", `Processed ${processed}/${totalFiles}`);
+          mainWindow.webContents.send(
+            "batch-upload-progress",
+            `Processed ${processed}/${totalFiles}`
+          );
         }
       }
     };

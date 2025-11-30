@@ -77,18 +77,15 @@ export function useImageGallery() {
     [images, activeId]
   );
 
-  const handleUpload = useCallback(async () => {
-    // Create a file input element dynamically
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "image/jpeg,image/png,image/tiff"; // Accepted formats
-    input.style.display = "none";
+  const handleUpload = useCallback(
+    async (file: File | null): Promise<ApiResponse<ImageFile>> => {
+      if (!file) {
+        return {
+          success: false,
+          error: { message: "No file selected" },
+        };
+      }
 
-    input.onchange = async (e) => {
-      const files = (e.target as HTMLInputElement).files;
-      if (!files || files.length === 0) return;
-
-      const file = files[0];
       const formData = new FormData();
       formData.append("file", file);
 
@@ -101,42 +98,33 @@ export function useImageGallery() {
           body: formData,
         });
 
-        let result: ApiResponse<ImageFile> | null = null;
-        try {
-          result = await response.json();
-        } catch (e) {
-          // ignore json parse error
+        const result: ApiResponse<ImageFile> = await response.json();
+
+        if (!result.success) {
+          const errorMessage =
+            result.error?.message ||
+            `Upload failed: ${response.status} ${response.statusText}`;
+          setError(errorMessage);
+          return result;
         }
 
-        if (!response.ok) {
-          if (result?.error?.message) {
-            throw new Error(result.error.message);
-          }
-          throw new Error(
-            `Upload failed: ${response.status} ${response.statusText}`
-          );
-        }
-
-        if (result && result.success) {
-          // Refresh images after successful upload
-          fetchImages();
-        } else {
-          throw new Error(result?.error?.message || "Failed to upload image");
-        }
+        await fetchImages();
+        return result;
       } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to upload image";
         console.error("Failed to upload image:", err);
-        setError(err instanceof Error ? err.message : "Unknown error");
+        setError(errorMessage);
+        return {
+          success: false,
+          error: { message: errorMessage },
+        };
       } finally {
         setLoading(false);
-        // Remove the input element
-        input.remove();
       }
-    };
-
-    // Trigger the file dialog
-    document.body.appendChild(input);
-    input.click();
-  }, [fetchImages]);
+    },
+    [fetchImages]
+  );
 
   const toggleSelection = useCallback(
     (id: string, multi: boolean) => {
@@ -166,22 +154,16 @@ export function useImageGallery() {
   );
 
   const deleteImage = useCallback(
-    async (id: string) => {
+    async (id: string): Promise<ApiResponse<null>> => {
       try {
         const response = await fetch(`${API_BASE_URL}/images/${id}`, {
           method: "DELETE",
         });
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result: ApiResponse<any> = await response.json();
+        const result: ApiResponse<null> = await response.json();
 
         if (result.success) {
-          // Refresh images after deletion
           fetchImages();
-          // Remove from selection if selected
           setSelectedImages((prev) => {
             const imageToRemove = Array.from(prev).find((img) => img.id === id);
             if (imageToRemove) {
@@ -194,14 +176,20 @@ export function useImageGallery() {
           if (activeId === id) {
             setActiveId(null);
           }
-          return true;
         } else {
-          throw new Error(result.error?.message || "Failed to delete image");
+          setError(result.error?.message || "Failed to delete image");
         }
+
+        return result;
       } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to delete image";
         console.error("Failed to delete image:", err);
-        setError(err instanceof Error ? err.message : "Unknown error");
-        return false;
+        setError(errorMessage);
+        return {
+          success: false,
+          error: { message: errorMessage },
+        };
       }
     },
     [fetchImages, activeId]
@@ -211,7 +199,7 @@ export function useImageGallery() {
     async (
       id: string,
       cropData: { x: number; y: number; width: number; height: number }
-    ) => {
+    ): Promise<ApiResponse<ImageFile>> => {
       setLoading(true);
       setError(null);
       try {
@@ -223,23 +211,24 @@ export function useImageGallery() {
           body: JSON.stringify(cropData),
         });
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
         const result: ApiResponse<ImageFile> = await response.json();
 
         if (result.success) {
-          // Refresh list to show new image
           await fetchImages();
-          return true;
         } else {
-          throw new Error(result.error?.message || "Failed to crop image");
+          setError(result.error?.message || "Failed to crop image");
         }
+
+        return result;
       } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to crop image";
         console.error("Failed to crop image:", err);
-        setError(err instanceof Error ? err.message : "Unknown error");
-        return false;
+        setError(errorMessage);
+        return {
+          success: false,
+          error: { message: errorMessage },
+        };
       } finally {
         setLoading(false);
       }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { ImageFile, ViewMode, FilterType } from "../../types";
+import { ImageFile, ViewMode, FilterType, ApiResponse } from "../../types";
 import { Button, Badge } from "./common";
 import { getImageSrc, getFormattedSize, getDimensions } from "../utils";
 import Cropper from "react-cropper";
@@ -29,7 +29,7 @@ interface CenterPanelProps {
   onCrop: (
     id: string,
     cropData: { x: number; y: number; width: number; height: number }
-  ) => Promise<boolean>;
+  ) => Promise<ApiResponse<ImageFile>>;
   onRefresh: () => void;
 }
 
@@ -98,13 +98,13 @@ export default function CenterPanel({
 
     if (typeof cropper !== "undefined" && activeImage) {
       const data = cropper.getData();
-      const success = await onCrop(activeImage.id, {
+      const result = await onCrop(activeImage.id, {
         x: data.x,
         y: data.y,
         width: data.width,
         height: data.height,
       });
-      if (success) {
+      if (result.success) {
         setIsCropping(false);
       }
     }
@@ -168,8 +168,6 @@ export default function CenterPanel({
             </svg>
           </Button>
 
-          <div className="h-4 w-px bg-gray-300"></div>
-
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-500">Filter:</span>
             <select
@@ -182,31 +180,6 @@ export default function CenterPanel({
               <option value="png">PNG Images</option>
               <option value="tiff">TIFF Images</option>
             </select>
-          </div>
-
-          <div className="h-4 w-px bg-gray-300"></div>
-
-          <div className="flex bg-gray-100 rounded-lg p-1">
-            <button
-              className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                viewMode === "gallery"
-                  ? "bg-white text-gray-800 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-              onClick={() => setViewMode("gallery")}
-            >
-              Gallery
-            </button>
-            <button
-              className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                viewMode === "single"
-                  ? "bg-white text-gray-800 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-              onClick={() => setViewMode("single")}
-            >
-              Single View
-            </button>
           </div>
         </div>
 
@@ -375,20 +348,12 @@ export default function CenterPanel({
                     </div>
                   ) : (
                     <div className="text-center">
-                      <h3 className="text-lg font-medium text-gray-900">
-                        {activeImage.metadata?.originalName ||
-                          activeImage.filename}
-                      </h3>
-                      <p className="text-sm text-gray-500 mb-3">
-                        {getDimensions(activeImage)} •{" "}
-                        {getFormattedSize(activeImage.size)}
-                      </p>
                       <Button
                         onClick={() => setIsCropping(true)}
                         variant="secondary"
                         size="sm"
                       >
-                        Crop Image
+                        Edit Image
                       </Button>
                     </div>
                   )}

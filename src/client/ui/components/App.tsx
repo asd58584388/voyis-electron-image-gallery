@@ -1,14 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import LeftPanel from "./LeftPanel";
 import CenterPanel from "./CenterPanel";
 import BottomPanel from "./BottomPanel";
 import { useImageGallery, useLogs } from "../hooks";
 import { ViewMode } from "../../types";
-import { getImageSrc } from "../utils";
 
 export default function App() {
   const {
-    images,
     filteredImages,
     selectedImages,
     activeImage,
@@ -52,17 +50,13 @@ export default function App() {
       window.electronAPI.onBatchUploadComplete((message) => {
         addLog(message, "success");
       });
+    } else {
+      addLog("Electron API not available", "error");
     }
   }, [addLog]);
 
-  const onUpload = () => {
-    handleUpload();
-    addLog("Refreshed image list after upload", "success");
-  };
-
   const onBatchUpload = async () => {
     if (window.electronAPI) {
-      // addLog("Starting batch upload...", "info"); // Optional, main process sends progress
       await window.electronAPI.batchUpload();
       refresh();
     }
@@ -113,11 +107,11 @@ export default function App() {
   };
 
   const onDelete = async (id: string) => {
-    const success = await deleteImage(id);
-    if (success) {
+    const result = await deleteImage(id);
+    if (result.success) {
       addLog("Image deleted successfully", "success");
     } else {
-      addLog("Failed to delete image", "error");
+      addLog(result.error?.message || "Failed to delete image", "error");
     }
   };
 
@@ -128,10 +122,11 @@ export default function App() {
         {/* Left Panel */}
         <LeftPanel
           isOpen={isLeftPanelOpen}
-          onUpload={onUpload}
+          handleUpload={handleUpload}
           onBatchUpload={onBatchUpload}
           activeImage={activeImage}
           selectedCount={selectedImages.size}
+          addLog={addLog}
         />
 
         {/* Center Panel */}

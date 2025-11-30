@@ -1,7 +1,7 @@
 import { app, BrowserWindow } from "electron";
 import path from "node:path";
 import started from "electron-squirrel-startup";
-import { setupExportHandlers } from "./exportHandlers";
+import { setupHandlers } from "./exportHandlers";
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -21,7 +21,7 @@ const createWindow = () => {
   });
 
   // Setup IPC handlers
-  setupExportHandlers(mainWindow);
+  setupHandlers(mainWindow);
 
   // and load the index.html of the app.
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
