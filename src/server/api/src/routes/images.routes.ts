@@ -222,7 +222,7 @@ router.get(
   validate([param("id").isUUID()]),
   asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
     const image = await prisma.image.findUnique({
-      where: { id: req.params.id! },
+      where: { id: req.params.id!, deleted_at: null },
     });
 
     if (!image) {
@@ -231,7 +231,6 @@ router.get(
     }
 
     const filePath = image.path;
-    console.log("filePath", filePath);
 
     // If image is TIFF, convert to WebP for browser compatibility
     if (image.mimetype === "image/tiff") {
