@@ -8,7 +8,9 @@ export function useImageGallery() {
   const [images, setImages] = useState<ImageFile[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedImages, setSelectedImages] = useState<Set<ImageFile>>(
+    new Set()
+  );
   const [activeId, setActiveId] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<FilterType>("all");
 
@@ -136,22 +138,32 @@ export function useImageGallery() {
     input.click();
   }, [fetchImages]);
 
-  const toggleSelection = useCallback((id: string, multi: boolean) => {
-    setSelectedIds((prev) => {
-      const newSet = new Set(multi ? prev : []);
-      if (newSet.has(id)) {
-        newSet.delete(id);
-      } else {
-        newSet.add(id);
-      }
+  const toggleSelection = useCallback(
+    (id: string, multi: boolean) => {
+      setSelectedImages((prev) => {
+        const newSet = new Set(multi ? prev : []);
+        const image = images.find((img) => img.id === id);
 
-      if (newSet.has(id) || !multi) {
-        setActiveId(id);
-      }
+        if (!image) return prev;
 
-      return newSet;
-    });
-  }, []);
+        // Check if image is already selected by ID
+        const existingImage = Array.from(newSet).find((img) => img.id === id);
+
+        if (existingImage) {
+          newSet.delete(existingImage);
+        } else {
+          newSet.add(image);
+        }
+
+        if (!existingImage || !multi) {
+          setActiveId(id);
+        }
+
+        return newSet;
+      });
+    },
+    [images]
+  );
 
   const deleteImage = useCallback(
     async (id: string) => {
@@ -170,13 +182,15 @@ export function useImageGallery() {
           // Refresh images after deletion
           fetchImages();
           // Remove from selection if selected
-          if (selectedIds.has(id)) {
-            setSelectedIds((prev) => {
+          setSelectedImages((prev) => {
+            const imageToRemove = Array.from(prev).find((img) => img.id === id);
+            if (imageToRemove) {
               const newSet = new Set(prev);
-              newSet.delete(id);
+              newSet.delete(imageToRemove);
               return newSet;
-            });
-          }
+            }
+            return prev;
+          });
           if (activeId === id) {
             setActiveId(null);
           }
@@ -190,7 +204,7 @@ export function useImageGallery() {
         return false;
       }
     },
-    [fetchImages, selectedIds, activeId]
+    [fetchImages, activeId]
   );
 
   const cropImage = useCallback(
@@ -234,14 +248,14 @@ export function useImageGallery() {
   );
 
   const selectAll = useCallback(() => {
-    if (selectedIds.size === images.length) {
-      setSelectedIds(new Set());
+    if (selectedImages.size === images.length) {
+      setSelectedImages(new Set());
       return false; // Deselected
     } else {
-      setSelectedIds(new Set(images.map((img) => img.id)));
+      setSelectedImages(new Set(images));
       return true; // Selected
     }
-  }, [images, selectedIds.size]);
+  }, [images, selectedImages.size]);
 
   const totalPages = Math.ceil(total / limit);
 
@@ -263,7 +277,7 @@ export function useImageGallery() {
   return {
     images,
     filteredImages,
-    selectedIds,
+    selectedImages,
     activeImage,
     activeId,
     filterType,

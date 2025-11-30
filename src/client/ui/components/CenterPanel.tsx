@@ -10,7 +10,7 @@ interface CenterPanelProps {
   totalImages: number;
   viewMode: ViewMode;
   setViewMode: (mode: ViewMode) => void;
-  selectedIds: Set<string>;
+  selectedImages: Set<ImageFile>;
   filterType: FilterType;
   setFilterType: (type: FilterType) => void;
   onSelectionChange: (id: string, multi: boolean) => void;
@@ -38,7 +38,7 @@ export default function CenterPanel({
   totalImages,
   viewMode,
   setViewMode,
-  selectedIds,
+  selectedImages,
   filterType,
   setFilterType,
   onSelectionChange,
@@ -65,6 +65,11 @@ export default function CenterPanel({
   } | null>(null);
   const [isCropping, setIsCropping] = useState(false);
   const cropperRef = useRef<HTMLImageElement>(null);
+
+  // Helper to check if an image is selected
+  const isImageSelected = (imageId: string) => {
+    return Array.from(selectedImages).some((img) => img.id === imageId);
+  };
 
   useEffect(() => {
     const handleClick = () => setContextMenu(null);
@@ -215,15 +220,15 @@ export default function CenterPanel({
             Sync
           </Button>
           <Button variant="ghost" size="sm" onClick={onSelectAll}>
-            {selectedIds.size === totalImages && totalImages > 0
+            {selectedImages.size === totalImages && totalImages > 0
               ? "Deselect All"
               : "Select All"}
           </Button>
           <Button
-            variant={selectedIds.size > 0 ? "success" : "secondary"}
+            variant={selectedImages.size > 0 ? "success" : "secondary"}
             size="sm"
             onClick={onExport}
-            disabled={selectedIds.size === 0}
+            disabled={selectedImages.size === 0}
           >
             Export Selected
           </Button>
@@ -251,7 +256,7 @@ export default function CenterPanel({
                   }}
                   onContextMenu={(e) => handleContextMenu(e, image.id)}
                   className={`group relative bg-white rounded-lg shadow-sm border-2 overflow-hidden cursor-pointer transition-all hover:shadow-md ${
-                    selectedIds.has(image.id)
+                    isImageSelected(image.id)
                       ? "border-blue-500 ring-2 ring-blue-200"
                       : "border-transparent hover:border-gray-300"
                   }`}
@@ -263,7 +268,7 @@ export default function CenterPanel({
                       className="w-full h-full object-cover transition-transform group-hover:scale-105"
                       loading="lazy"
                     />
-                    {selectedIds.has(image.id) && (
+                    {isImageSelected(image.id) && (
                       <div className="absolute top-2 right-2">
                         <Badge className="bg-blue-500 text-white w-5 h-5 p-0! flex items-center justify-center border-2 border-white">
                           ✓

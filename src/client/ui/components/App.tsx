@@ -10,7 +10,7 @@ export default function App() {
   const {
     images,
     filteredImages,
-    selectedIds,
+    selectedImages,
     activeImage,
     activeId,
     filterType,
@@ -26,7 +26,7 @@ export default function App() {
     prevPage,
     total,
     deleteImage,
-    cropImage, // Add cropImage
+    cropImage,
     refresh,
     sync,
   } = useImageGallery();
@@ -77,13 +77,13 @@ export default function App() {
     const isSelected = selectAll();
     addLog(
       isSelected
-        ? `Selected all ${images.length} images`
+        ? `Selected all ${selectedImages.size} images`
         : "Deselected all images"
     );
   };
 
   const onExport = async () => {
-    if (selectedIds.size === 0) {
+    if (selectedImages.size === 0) {
       addLog("No images selected for export.", "error");
       return;
     }
@@ -96,15 +96,13 @@ export default function App() {
       }
 
       addLog(
-        `Exporting ${selectedIds.size} images to ${targetFolder}...`,
+        `Exporting ${selectedImages.size} images to ${targetFolder}...`,
         "info"
       );
 
-      // Get full URLs for selected images
-      const selectedImages = images.filter((img) => selectedIds.has(img.id));
-      // const imageUrls = selectedImages.map(img => getImageSrc(img, false)); // No longer needed
+      const selectedImagesArray = Array.from(selectedImages);
 
-      await window.electronAPI.exportImages(selectedImages, targetFolder);
+      await window.electronAPI.exportImages(selectedImagesArray, targetFolder);
     } catch (err) {
       console.error("Export error:", err);
       addLog(
@@ -133,7 +131,7 @@ export default function App() {
           onUpload={onUpload}
           onBatchUpload={onBatchUpload}
           activeImage={activeImage}
-          selectedCount={selectedIds.size}
+          selectedCount={selectedImages.size}
         />
 
         {/* Center Panel */}
@@ -142,7 +140,7 @@ export default function App() {
           totalImages={total}
           viewMode={viewMode}
           setViewMode={setViewMode}
-          selectedIds={selectedIds}
+          selectedImages={selectedImages}
           filterType={filterType}
           setFilterType={setFilterType}
           onSelectionChange={toggleSelection}
