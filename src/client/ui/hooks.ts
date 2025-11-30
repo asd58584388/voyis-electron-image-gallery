@@ -13,7 +13,7 @@ export function useImageGallery() {
 
   // Pagination state
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(30);
+  const [limit, setLimit] = useState(50);
   const [total, setTotal] = useState(0);
 
   const fetchImages = useCallback(async () => {

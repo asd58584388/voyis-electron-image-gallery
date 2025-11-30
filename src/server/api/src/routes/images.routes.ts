@@ -322,48 +322,6 @@ router.get(
 );
 
 /**
- * Update image metadata
- * PATCH /api/images/:id
- */
-router.patch(
-  "/:id",
-  validate([
-    param("id").isUUID(),
-    body("metadata").optional().isObject(),
-    body("folder_name").optional().isString(),
-  ]),
-  asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
-    const { metadata, folder_name } = req.body;
-
-    const existingImage = await prisma.image.findUnique({
-      where: { id: req.params.id! },
-    });
-
-    if (!existingImage) {
-      sendNotFound(res, "Image");
-      return;
-    }
-
-    const updateData: any = {};
-
-    if (metadata !== undefined) {
-      updateData.metadata = metadata;
-    }
-
-    if (folder_name !== undefined) {
-      updateData.folder_name = folder_name;
-    }
-
-    const image = await prisma.image.update({
-      where: { id: req.params.id! },
-      data: updateData,
-    });
-
-    sendSuccess(res, image);
-  })
-);
-
-/**
  * Crop an image and save as new image
  * POST /api/images/:id/crop
  */
