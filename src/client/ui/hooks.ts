@@ -264,6 +264,7 @@ export function useImageGallery() {
     deleteImage,
     setError,
     cropImage,
+    refresh: fetchImages,
   };
 }
 
@@ -281,7 +282,7 @@ export function useLogs() {
     (message: string, type: LogEntry["type"] = "info") => {
       setLogs((prev) => [
         {
-          id: Date.now().toString(),
+          id: crypto.randomUUID(),
           timestamp: new Date().toLocaleTimeString(),
           message,
           type,

@@ -10,6 +10,7 @@ import {
 
 interface LeftPanelProps {
   onUpload: () => void;
+  onBatchUpload?: () => void;
   activeImage?: ImageFile;
   selectedCount: number;
   isOpen: boolean;
@@ -17,6 +18,7 @@ interface LeftPanelProps {
 
 export default function LeftPanel({
   onUpload,
+  onBatchUpload,
   activeImage,
   selectedCount,
   isOpen,
@@ -34,6 +36,9 @@ export default function LeftPanel({
           </h2>
           <Button onClick={onUpload} variant="primary" className="w-full">
             <span>Upload Image</span>
+          </Button>
+          <Button onClick={onBatchUpload} variant="primary" className="w-full mt-2">
+            <span>Batch Upload</span>
           </Button>
         </div>
 

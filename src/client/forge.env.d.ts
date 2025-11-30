@@ -16,8 +16,11 @@ declare global {
         targetFolder: string
       ) => Promise<void>;
       selectFolder: () => Promise<string | undefined>;
+      batchUpload: () => Promise<void>;
       onExportProgress: (callback: (message: string) => void) => void;
       onExportComplete: (callback: (message: string) => void) => void;
+      onBatchUploadProgress: (callback: (message: string) => void) => void;
+      onBatchUploadComplete: (callback: (message: string) => void) => void;
     };
   }
 }

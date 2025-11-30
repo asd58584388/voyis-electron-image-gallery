@@ -27,6 +27,7 @@ export default function App() {
     total,
     deleteImage,
     cropImage, // Add cropImage
+    refresh,
   } = useImageGallery();
 
   const { logs, addLog } = useLogs();
@@ -44,12 +45,26 @@ export default function App() {
       window.electronAPI.onExportComplete((message) => {
         addLog(message, "success");
       });
+      window.electronAPI.onBatchUploadProgress((message) => {
+        addLog(message, "info");
+      });
+      window.electronAPI.onBatchUploadComplete((message) => {
+        addLog(message, "success");
+      });
     }
   }, [addLog]);
 
   const onUpload = () => {
     handleUpload();
     addLog("Refreshed image list after upload", "success");
+  };
+
+  const onBatchUpload = async () => {
+    if (window.electronAPI) {
+      // addLog("Starting batch upload...", "info"); // Optional, main process sends progress
+      await window.electronAPI.batchUpload();
+      refresh();
+    }
   };
 
   const onSelectAll = () => {
@@ -110,6 +125,7 @@ export default function App() {
         <LeftPanel
           isOpen={isLeftPanelOpen}
           onUpload={onUpload}
+          onBatchUpload={onBatchUpload}
           activeImage={activeImage}
           selectedCount={selectedIds.size}
         />

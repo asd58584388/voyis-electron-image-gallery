@@ -19,6 +19,9 @@ import { ImageFile } from "../types";
 // Given "download", I'll stick to concurrent promises with a limit,
 // as it's the standard "Node way" for network/disk I/O.
 
+// Define base URL for API requests
+const BASE_URL = "http://localhost:3000";
+
 export function setupExportHandlers(mainWindow: BrowserWindow) {
   // Handle folder selection
   ipcMain.handle("select-folder", async () => {
@@ -40,7 +43,6 @@ export function setupExportHandlers(mainWindow: BrowserWindow) {
       const CONCURRENCY_LIMIT = 5;
       let completed = 0;
       const total = images.length;
-      const BASE_URL = "http://localhost:3000"; // Should be configurable
 
       // Helper to download a single file
       const downloadImage = async (image: ImageFile) => {
@@ -135,4 +137,145 @@ export function setupExportHandlers(mainWindow: BrowserWindow) {
       );
     }
   );
+
+  // Handle batch upload
+  ipcMain.handle("batch-upload", async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ["openFile"],
+      filters: [{ name: "JSON Config", extensions: ["json"] }],
+    });
+
+    if (result.canceled || result.filePaths.length === 0) return;
+
+    console.log(result);
+    const configPath = result.filePaths[0];
+    let config: Array<{ folderPath: string; extensions: string[] }>;
+    try {
+      const content = await fs.promises.readFile(configPath, "utf-8");
+      const parsed = JSON.parse(content);
+      if (Array.isArray(parsed)) {
+        config = parsed;
+      } else {
+        mainWindow.webContents.send("batch-upload-progress", "Invalid config format: expected an array");
+        return;
+      }
+    } catch (err) {
+      mainWindow.webContents.send("batch-upload-progress", "Failed to parse config file");
+      return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+    let totalSize = 0;
+    const allFiles: { path: string; name: string }[] = [];
+
+    // 1. Discovery Phase
+    for (const entry of config) {
+      const folder = entry.folderPath;
+      const types = entry.extensions || ["jpg", "png", "tif"];
+
+      try {
+        await fs.promises.access(folder);
+      } catch {
+        mainWindow.webContents.send("batch-upload-progress", `Skipping missing folder: ${folder}`);
+        continue;
+      }
+
+      try {
+        const files = await fs.promises.readdir(folder);
+        for (const file of files) {
+          const ext = path.extname(file).slice(1).toLowerCase();
+          if (types.includes(ext)) {
+            allFiles.push({
+              path: path.join(folder, file),
+              name: file,
+            });
+          }
+        }
+      } catch (err) {
+        mainWindow.webContents.send("batch-upload-progress", `Error reading folder ${folder}: ${err}`);
+      }
+    }
+
+    const totalFiles = allFiles.length;
+    mainWindow.webContents.send("batch-upload-progress", `Found ${totalFiles} files to upload. Starting...`);
+
+    // 2. Upload Phase (Parallel)
+    const CONCURRENCY_LIMIT = 5;
+    const queue = [...allFiles];
+    let processed = 0;
+
+    const uploadFile = async (fileInfo: { path: string; name: string }) => {
+      try {
+        const stats = await fs.promises.stat(fileInfo.path);
+        const buffer = await fs.promises.readFile(fileInfo.path);
+        
+        // Determine mime type based on extension
+        const ext = path.extname(fileInfo.name).toLowerCase();
+        let mimeType: string;
+        if (ext === ".jpg" || ext === ".jpeg") mimeType = "image/jpeg";
+        else if (ext === ".png") mimeType = "image/png";
+        else if (ext === ".tif" || ext === ".tiff") mimeType = "image/tiff";
+        else {
+          throw new Error(`Unsupported file type: ${ext}`);
+        }
+
+        const blob = new Blob([buffer], { type: mimeType });
+        const formData = new FormData();
+        formData.append("file", blob, fileInfo.name);
+
+        const response = await fetch(`${BASE_URL}/api/images`, {
+          method: "POST",
+          body: formData,
+        });
+
+        if (response.ok) {
+          successCount++;
+          totalSize += stats.size;
+        } else {
+          failCount++;
+          let errorMessage = `Failed to upload: ${fileInfo.name}`;
+          try {
+            const errorData = await response.json();
+            if (errorData && errorData.error && errorData.error.message) {
+              errorMessage = `Failed: ${fileInfo.name} - ${errorData.error.message}`;
+            }
+          } catch (e) {
+            // If JSON parsing fails, stick to generic message or status text
+            errorMessage = `Failed: ${fileInfo.name} - ${response.statusText}`;
+          }
+          mainWindow.webContents.send("batch-upload-progress", errorMessage);
+        }
+      } catch (err) {
+        failCount++;
+        mainWindow.webContents.send("batch-upload-progress", `Error uploading ${fileInfo.name}: ${err instanceof Error ? err.message : String(err)}`);
+      } finally {
+        processed++;
+        if (processed % 5 === 0 || processed === totalFiles) {
+           mainWindow.webContents.send("batch-upload-progress", `Processed ${processed}/${totalFiles}`);
+        }
+      }
+    };
+
+    const workers = [];
+    for (let i = 0; i < Math.min(CONCURRENCY_LIMIT, totalFiles); i++) {
+      workers.push(
+        (async () => {
+          while (queue.length > 0) {
+            const fileInfo = queue.shift();
+            if (fileInfo) {
+              await uploadFile(fileInfo);
+            }
+          }
+        })()
+      );
+    }
+
+    await Promise.all(workers);
+
+    mainWindow.webContents.send(
+      "batch-upload-complete",
+      `Batch upload complete. Success: ${successCount}, Failed: ${failCount}, Total Size: ${(totalSize / 1024 / 1024).toFixed(2)} MB`
+    );
+  });
 }
