@@ -480,6 +480,11 @@ router.delete(
       data: { deleted_at: new Date() },
     });
 
+    await deleteFileIfExists(deletedImage.path);
+    if (deletedImage.thumbnail_path) {
+      await deleteFileIfExists(deletedImage.thumbnail_path);
+    }
+
     sendSuccess(res, {
       message: "Image deleted successfully",
       id: deletedImage.id,
