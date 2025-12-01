@@ -97,4 +97,4 @@ out/
 dist
 generated
 
-uploads/*
+src/server/api/uploads/

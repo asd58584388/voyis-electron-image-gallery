@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   postgres:
@@ -16,6 +16,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - app_net
 
   api:
     build:
@@ -24,19 +26,19 @@ services:
         NODE_VERSION: ${NODE_VERSION:-24}
     ports:
       - "3000:3000"
-    environment:
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      PORT: ${API_SERVER_PORT:-3000}
-      STORAGE_PATH: /app/uploads
     volumes:
-      - uploads_data:/app/uploads      # Persist uploads
+      - uploads_data:/app/uploads # Persist uploads
     depends_on:
       postgres:
         condition: service_healthy
-    command: sh -c "npm run db:migrate && npm run start"
+    command: sh -c "npm run db:migrate && npm run dev "
     env_file:
-      - ./api/.env.docker                     # Use a separate env file for container
-
+      - ./api/.env.docker # Use a separate env file for container
+    networks:
+      - app_net
 volumes:
   postgres_data:
   uploads_data:
+
+networks:
+  app_net:
