@@ -108,7 +108,7 @@ docker compose up --env-file .env.compose up
 
 This will:
 
-- Start PostgreSQL 18 and persistent `postgres_data` volume.
+- Start PostgreSQL and persistent `postgres_data` volume.
 - Build the API container, install dependencies, generate the Prisma client, and run `npm run db:reset` followed by `npm run dev` .
 - Mount `uploads_data` so thumbnails/originals survive container restarts.
 
@@ -151,21 +151,31 @@ npm run start
 
 ### Why
 
-1. NO OFFLINE MODE – data needed to redownload after browser cache invalidate.
-2. Simplicity: Avoids writing complex algorithms.
+1. **No Offline Mode** – the renderer only holds gallery state in React memory.
+2. **Server-Side Source of Truth** – uploads, crops, EXIF edits, duplicate checks, and thumbnail generation all execute inside the Express + Prisma stack (`images.routes.ts`). Letting the API own every write keeps metadata, storage, and the database in lockstep without dual-write logic in the client.
+3. **Deterministic Recovery** – the sync button simply resets to page 1 with the default 50-item limit and replays the same API query. Because there’s no divergent local queue, a single refresh restores the UI to whatever the server currently stores.
+
+### Potential Flaw
+
+1. **API Hot Path Pressure** – Sharp crops, thumbnail generation, EXIF reads/writes, and duplicate hashing (MD5) all happen in the request cycle. Under heavy ingestion those CPU/IO-heavy steps can back up the server.
+2. **Chatty Syncs** – because the renderer re-requests the list on every refresh and keeps no delta cache(for images list data), users on slow networks repeatedly transfer the same 50-row payloads.
+3. **Residual Browser Cache** – after a delete the static `/uploads/...` asset can remain in Electron’s cache until it expires, so large TIFF previews may still occupy disk even though the DB row is gone.
 
 ## Q&A
 
 1. What design decisions did you make to prepare for future large-scale
    data (e.g., 100k+ images)?
 
-   1. batch upload and batch export, export and upload images concurrently
-   2. pagination, only get a small
+   1. **Pagination + Filtering Everywhere** – `/api/images` requires `page`/`limit`, caps the limit at 100, and supports folder + MIME filters, so the client never requests more than 50 rows at a time.
+   2. **Concurrent IO in Electron** – both batch upload and export use `runConcurrent` with a guarded pool (default 5 workers). That keeps throughput high without overwhelming the API or filesystem.
+   3. **Static Asset Caching** – thumbnails are emitted as WebP and served from `/uploads/.../thumbnails` with a month-long cache-control header, which keeps gallery rendering fast even as the dataset grows.
 
 2. What specific optimization techniques (e.g., in the UI, API, or Database)
    would you implement to handle large-scale syncing and rendering?
-   1. browser Cache
-   2. image list pagination
+   1. **UI Virtualization & Prefetching** – keep server pagination but add windowed list rendering (e.g., TanStack Virtual) plus prefetch `page + 1` to hide latency while reducing DOM weight with 100k+ assets.
+   2. **Background Workers for Heavy Jobs** – move Sharp thumbnailing and EXIF rewrites to a queue/worker tier so the HTTP request returns quickly; Electron can poll for job completion.
+   3. **Storage/CDN Optimization** – offload `/uploads` to object storage with CDN-backed signed URLs. That shrinks API bandwidth and lets thumbnails be served closer to users.
+   4. **Database-Level Guardrails** – partition images by folder or ingestion date and add covering indexes on `folder_name`, `mimetype`, and `filehash` so scans stay fast beyond 100k rows.
 
 ## 📄 License
 
