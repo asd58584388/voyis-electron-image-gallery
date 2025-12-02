@@ -199,10 +199,7 @@ export default function CenterPanel({
       });
       if (result.success) {
         setIsCropping(false);
-        addLog(
-          `Image cropped successfully: ${activeImage.originalName}`,
-          "success"
-        );
+        addLog("Image cropped successfully.", "success");
       } else {
         addLog(result.error?.message || "Failed to crop image", "error");
       }
