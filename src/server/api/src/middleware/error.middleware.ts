@@ -2,35 +2,15 @@ import { Request, Response, NextFunction } from "express";
 import { sendError } from "../utils/response.utils.js";
 
 /**
- * Custom error class for API errors
- */
-export class ApiError extends Error {
-  constructor(
-    public statusCode: number,
-    message: string,
-    public code?: string,
-    public details?: any
-  ) {
-    super(message);
-    this.name = "ApiError";
-  }
-}
-
-/**
  * Error handling middleware
  */
 export function errorHandler(
-  err: Error | ApiError,
+  err: Error,
   _req: Request,
   res: Response,
   _next: NextFunction
 ): void {
   console.error("Error:", err);
-
-  if (err instanceof ApiError) {
-    sendError(res, err.message, err.statusCode, err.code, err.details);
-    return;
-  }
 
   // Handle Prisma errors
   if (err.name === "PrismaClientKnownRequestError") {

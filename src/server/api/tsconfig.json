@@ -33,6 +33,6 @@
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true
   },
-  "include": ["src/**/*", "generated/**/*"],
+  "include": ["src/**/*", "generated/**/*", "../../shared/**/*"],
   "exclude": ["node_modules", "dist"]
 }

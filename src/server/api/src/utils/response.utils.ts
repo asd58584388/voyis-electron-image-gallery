@@ -94,20 +94,3 @@ export function sendNotFound(
 ): void {
   sendError(res, `${resource} not found`, 404, "NOT_FOUND");
 }
-
-/**
- * Send conflict error response
- */
-export function sendConflict(res: Response, message: string): void {
-  sendError(res, message, 409, "CONFLICT");
-}
-
-/**
- * Send unauthorized error response
- */
-export function sendUnauthorized(
-  res: Response,
-  message: string = "Unauthorized"
-): void {
-  sendError(res, message, 401, "UNAUTHORIZED");
-}

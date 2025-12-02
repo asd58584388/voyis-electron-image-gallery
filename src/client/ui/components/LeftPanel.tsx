@@ -1,30 +1,21 @@
 import React, { useRef } from "react";
-import { ApiResponse, ImageFile } from "../../types";
 import { Button } from "./common";
 import {
   getImageSrc,
   getFormattedSize,
   getFormattedDate,
-  getDimensions,
+  getExifDimensions,
 } from "../utils";
+import { useGalleryContext } from "../context";
 
 interface LeftPanelProps {
-  handleUpload: (file: File) => Promise<ApiResponse<ImageFile>>;
-  onBatchUpload?: () => void;
-  activeImage?: ImageFile;
-  selectedCount: number;
   isOpen: boolean;
-  addLog: (message: string, type: "info" | "success" | "error") => void;
+  onBatchUpload: () => void;
 }
 
-export default function LeftPanel({
-  handleUpload,
-  onBatchUpload,
-  activeImage,
-  selectedCount,
-  isOpen,
-  addLog,
-}: LeftPanelProps) {
+export default function LeftPanel({ isOpen, onBatchUpload }: LeftPanelProps) {
+  const { activeImage, selectedImages, handleUpload, addLog } =
+    useGalleryContext();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleUploadChange = async (
@@ -41,9 +32,7 @@ export default function LeftPanel({
     const result = await handleUpload(file);
     if (result.success) {
       const uploadedName =
-        result.data?.metadata?.originalName ||
-        result.data?.filename ||
-        file.name;
+        result.data?.originalName || result.data?.filename || file.name;
       addLog(`Uploaded ${uploadedName}`, "success");
     } else {
       addLog(result.error?.message || "Failed to upload image", "error");
@@ -89,9 +78,11 @@ export default function LeftPanel({
             Metadata
           </h3>
 
-          {selectedCount > 1 ? (
+          {selectedImages.size > 1 ? (
             <div className="p-4 bg-blue-50 text-blue-800 rounded-lg border border-blue-100">
-              <p className="font-medium">{selectedCount} items selected</p>
+              <p className="font-medium">
+                {selectedImages.size} items selected
+              </p>
               <p className="text-sm opacity-75 mt-1">
                 Batch actions available in toolbar.
               </p>
@@ -103,7 +94,7 @@ export default function LeftPanel({
                   File Name
                 </label>
                 <div className="text-sm font-medium text-gray-900 break-all">
-                  {activeImage.metadata?.originalName || activeImage.filename}
+                  {activeImage.originalName || activeImage.filename}
                 </div>
               </div>
 
@@ -131,7 +122,7 @@ export default function LeftPanel({
                   Dimensions
                 </label>
                 <div className="text-sm text-gray-700">
-                  {getDimensions(activeImage)}
+                  {getExifDimensions(activeImage)}
                 </div>
               </div>
 

@@ -1,4 +1,10 @@
 import { Router, Request, Response } from "express";
+import type { Prisma } from "../../generated/prisma/client.js";
+import type {
+  EditableExifField,
+  EditableExifInput,
+} from "../../../../shared/exif.js";
+import { EDITABLE_EXIF_FIELDS } from "../constants/exif.constants.js";
 import { body, param } from "express-validator";
 import path from "path";
 import sharp from "sharp";
@@ -19,13 +25,86 @@ import {
   calculateFileHash,
   generateUniqueFilename,
   generateThumbnailFromPath,
-  getImageMetadataFromPath,
+  getExifDataFromPath,
+  writeExifDataToPath,
   deleteFileIfExists,
   moveFile,
 } from "../utils/image.utils.js";
 
 const router = Router();
 const STORAGE_PATH = process.env.STORAGE_PATH || "/app/uploads";
+
+const sanitizeEditableExifInput = (
+  payload: Record<string, unknown>
+): Partial<EditableExifInput> => {
+  const result: Record<string, string | null> = {};
+
+  const numericFields: EditableExifField[] = [
+    "iso",
+    "fNumber",
+    "gpsLatitude",
+    "gpsLongitude",
+  ];
+
+  for (const field of EDITABLE_EXIF_FIELDS) {
+    if (!(field in payload)) continue;
+    const rawValue = payload[field];
+    if (rawValue === undefined) continue;
+
+    if (rawValue === null || rawValue === "") {
+      result[field] = null;
+      continue;
+    }
+
+    if (numericFields.includes(field)) {
+      const parsed = Number(rawValue);
+      if (Number.isFinite(parsed)) {
+        result[field] = String(parsed);
+      }
+      continue;
+    }
+
+    result[field] = String(rawValue);
+  }
+
+  return result as Partial<EditableExifInput>;
+};
+
+const exifUpdateValidators = [
+  param("id").isUUID(),
+  body("make").optional({ nullable: true }).isString().isLength({ max: 255 }),
+  body("model").optional({ nullable: true }).isString().isLength({ max: 255 }),
+  body("dateTimeOriginal")
+    .optional({ nullable: true })
+    .isString()
+    .isLength({ max: 255 }),
+  body("iso")
+    .optional({ nullable: true })
+    .isFloat({ min: 0 })
+    .withMessage("iso must be a positive number"),
+  body("fNumber")
+    .optional({ nullable: true })
+    .isFloat({ min: 0 })
+    .withMessage("fNumber must be a positive number"),
+  body("exposure")
+    .optional({ nullable: true })
+    .isString()
+    .isLength({ max: 255 }),
+  body("focalLength")
+    .optional({ nullable: true })
+    .isString()
+    .isLength({ max: 255 }),
+  body("gpsLatitude")
+    .optional({ nullable: true })
+    .isFloat({ min: -90, max: 90 }),
+  body("gpsLongitude")
+    .optional({ nullable: true })
+    .isFloat({ min: -180, max: 180 }),
+  body("software")
+    .optional({ nullable: true })
+    .isString()
+    .isLength({ max: 255 }),
+];
 
 /**
  * Create a single image resource
@@ -49,15 +128,14 @@ router.post(
     const file = req.file!;
     const folderName = (req.body.folder_name as string) || "default";
     const tempFilePath = file.path; // Temp file location from multer disk storage
-    console.log("uploaded file", file);
+
     try {
-      // Step 1: Validate image integrity FIRST (fail fast for corrupted images)
-      // Extract metadata from disk - if this fails, image is corrupted
+      // Step 1: Extract EXIF metadata - doubles as validation for corrupted images
       let metadata;
       try {
-        metadata = await getImageMetadataFromPath(tempFilePath);
-        console.log("file metadata", metadata);
+        metadata = await getExifDataFromPath(tempFilePath);
       } catch (metadataError) {
+        console.error("Failed to read EXIF data:", metadataError);
         await deleteFileIfExists(tempFilePath);
         sendError(res, "Corrupted or invalid image file", 400, "INVALID_IMAGE");
         return;
@@ -107,12 +185,13 @@ router.post(
         await generateThumbnailFromPath(tempFilePath, thumbnailPath);
       } catch (thumbnailError) {
         await deleteFileIfExists(tempFilePath);
-        throw new Error(
-          `Failed to generate thumbnail: ${
-            thumbnailError instanceof Error
-              ? thumbnailError.message
-              : "Unknown error"
-          }`
+        return sendError(
+          res,
+          thumbnailError instanceof Error
+            ? thumbnailError.message
+            : "Failed to generate thumbnail",
+          500,
+          "THUMBNAIL_GENERATION_FAILED"
         );
       }
 
@@ -131,10 +210,7 @@ router.post(
       }
 
       // Prepare metadata payload (image dimensions, format, EXIF, etc.)
-      const metadataPayload = {
-        ...metadata,
-        originalName: file.originalname,
-      };
+      const metadataPayload = metadata as Prisma.JsonObject;
 
       // Create database record
       const image = await prisma.image.create({
@@ -146,6 +222,7 @@ router.post(
           size: file.size,
           mimetype: file.mimetype,
           filehash: fileHash,
+          originalName: file.originalname,
           metadata: metadataPayload,
         },
       });
@@ -177,15 +254,10 @@ router.get(
     const limit = parseInt(req.query.limit as string);
     const folderName = req.query.folder_name as string;
     const mimetype = req.query.mimetype as string;
-    const includeDeleted = req.query.include_deleted === "true";
 
     const skip = (page - 1) * limit;
 
-    const where: any = {};
-
-    if (!includeDeleted) {
-      where.deleted_at = null;
-    }
+    const where: Prisma.ImageWhereInput = {};
 
     if (folderName) {
       where.folder_name = folderName;
@@ -222,7 +294,7 @@ router.get(
   validate([param("id").isUUID()]),
   asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
     const image = await prisma.image.findUnique({
-      where: { id: req.params.id!, deleted_at: null },
+      where: { id: req.params.id! },
     });
 
     if (!image) {
@@ -231,7 +303,7 @@ router.get(
     }
 
     const filePath = image.path;
-
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
     // If image is TIFF, convert to WebP for browser compatibility
     if (image.mimetype === "image/tiff") {
       const previewFilename = `preview_${path.basename(
@@ -240,9 +312,6 @@ router.get(
       )}.webp`;
       const previewDir = path.join(path.dirname(filePath), "previews");
       const previewPath = path.join(previewDir, previewFilename);
-
-      // Add caching headers
-      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
 
       try {
         // Check if cached preview exists
@@ -271,19 +340,10 @@ router.get(
         // Generate preview, save to file, and stream to response
         const pipeline = sharp(filePath).webp({ quality: 100 });
 
-        // Save to file in background (fire and forget essentially, or we can wait)
-        // Ideally we want to serve it as fast as possible.
-        // We can pipe to response AND file, but piping to file is a Writable stream.
-        // A Cloneable stream is needed.
-
-        // Better approach for first load: just pipe to response.
-        // But we want to cache it.
-
         await pipeline.toFile(previewPath);
         res.sendFile(previewPath);
       } catch (error) {
         console.error("Error processing/caching TIFF preview:", error);
-        // Fallback: try to stream directly if file writing failed
         try {
           const fallbackPipeline = sharp(filePath).webp({ quality: 100 });
           fallbackPipeline.pipe(res);
@@ -297,8 +357,6 @@ router.get(
       // For standard web images (JPG, PNG), stream directly
       // Ensure we set the content type
       res.setHeader("Content-Type", image.mimetype);
-      // Add caching headers
-      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
 
       // Check if file exists before sending
       try {
@@ -314,7 +372,7 @@ router.get(
         });
       } catch (error) {
         console.error("Error resolving file path:", error);
-        sendError(res, "Invalid file path", 500);
+        sendError(res, "Fail to retrieve image file", 500);
       }
     }
   })
@@ -376,12 +434,8 @@ router.post(
       const newFileHash = await calculateFileHash(tempPath);
 
       // Generate standard unique filename based on hash
-      const originalMetadata = originalImage.metadata as Record<
-        string,
-        any
-      > | null;
       const baseOriginalName =
-        originalMetadata?.originalName || originalImage.filename;
+        originalImage.originalName || originalImage.filename;
       const croppedOriginalName = `cropped_${baseOriginalName}`;
 
       const uniqueFilename = generateUniqueFilename(
@@ -413,12 +467,9 @@ router.post(
 
       // Get new file stats
       const stats = await fs.stat(finalImagePath);
-      const metadata = await getImageMetadataFromPath(finalImagePath);
-
-      const metadataPayload = {
-        ...metadata,
-        originalName: croppedOriginalName,
-      };
+      const metadataPayload = (await getExifDataFromPath(
+        finalImagePath
+      )) as Prisma.JsonObject;
 
       // Create new database record
       const newImage = await prisma.image.create({
@@ -430,6 +481,7 @@ router.post(
           size: stats.size,
           mimetype: originalImage.mimetype,
           filehash: newFileHash,
+          originalName: croppedOriginalName,
           metadata: metadataPayload,
         },
       });
@@ -452,15 +504,23 @@ router.post(
 );
 
 /**
- * Soft delete image (mark as deleted without removing files)
- * DELETE /api/images/:id
+ * Update EXIF metadata for an image
+ * PATCH /api/images/:id/exif
  */
-router.delete(
-  "/:id",
-  validate([param("id").isUUID()]),
+router.patch(
+  "/:id/exif",
+  validate(exifUpdateValidators),
   asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
+    const imageId = req.params.id;
+    const updates = sanitizeEditableExifInput(req.body);
+
+    if (Object.keys(updates).length === 0) {
+      sendError(res, "No EXIF fields provided", 400, "NO_EXIF_UPDATES");
+      return;
+    }
+
     const existingImage = await prisma.image.findUnique({
-      where: { id: req.params.id! },
+      where: { id: imageId },
     });
 
     if (!existingImage) {
@@ -468,28 +528,23 @@ router.delete(
       return;
     }
 
-    // Check if already deleted
-    if (existingImage.deleted_at) {
-      sendError(res, "Image already deleted", 400, "ALREADY_DELETED");
-      return;
-    }
+    await writeExifDataToPath(existingImage.path, updates);
+    const [metadataPayload, newFileHash, stats] = await Promise.all([
+      getExifDataFromPath(existingImage.path),
+      calculateFileHash(existingImage.path),
+      fs.stat(existingImage.path),
+    ]);
 
-    // Soft delete - just mark as deleted, keep files intact
-    const deletedImage = await prisma.image.update({
-      where: { id: req.params.id! },
-      data: { deleted_at: new Date() },
+    const updatedImage = await prisma.image.update({
+      where: { id: imageId },
+      data: {
+        metadata: metadataPayload as Prisma.JsonObject,
+        filehash: newFileHash,
+        size: stats.size,
+      },
     });
 
-    await deleteFileIfExists(deletedImage.path);
-    if (deletedImage.thumbnail_path) {
-      await deleteFileIfExists(deletedImage.thumbnail_path);
-    }
-
-    sendSuccess(res, {
-      message: "Image deleted successfully",
-      id: deletedImage.id,
-      deleted_at: deletedImage.deleted_at,
-    });
+    sendSuccess(res, updatedImage);
   })
 );
 
@@ -503,12 +558,26 @@ router.delete(
   asyncHandler(async (req: Request, res: Response) => {
     const { ids } = req.body;
 
-    const result = await prisma.image.updateMany({
-      where: {
-        id: { in: ids },
-        deleted_at: null,
-      },
-      data: { deleted_at: new Date() },
+    const images = await prisma.image.findMany({
+      where: { id: { in: ids } },
+    });
+
+    if (images.length === 0) {
+      sendSuccess(res, { message: "No images found to delete", count: 0 });
+      return;
+    }
+
+    await Promise.all(
+      images.map(async (image) => {
+        await deleteFileIfExists(image.path);
+        if (image.thumbnail_path) {
+          await deleteFileIfExists(image.thumbnail_path);
+        }
+      })
+    );
+
+    const result = await prisma.image.deleteMany({
+      where: { id: { in: ids } },
     });
 
     sendSuccess(res, {

@@ -1,27 +1,13 @@
-export interface ExifData {
-  hasExif: boolean;
-  orientation?: number;
-  [key: string]: any;
-}
+import type { ExifMetadata } from "../shared/exif";
 
-export interface ImageMetadata {
-  width?: number;
-  height?: number;
-  format?: string;
-  space?: string;
-  channels?: number;
-  depth?: string;
-  density?: number;
-  hasAlpha?: boolean;
-  exif?: ExifData | null;
-  originalName: string;
-}
+export type ImageMetadata = ExifMetadata;
 
 export interface ImageFile {
   id: string;
   filename: string;
   path: string;
   thumbnail_path: string | null;
+  originalName: string;
   folder_name: string;
   size: number;
   mimetype: string;
@@ -39,8 +25,13 @@ export interface LogEntry {
   type: "info" | "success" | "error";
 }
 
+export interface UploadFile {
+  path: string;
+  name: string;
+}
+
 export type ViewMode = "gallery" | "single";
-export type FilterType = "all" | "jpeg" | "png";
+export type FilterType = "all" | "jpeg" | "png" | "tiff";
 
 export interface IPCMessage {
   message: string;
@@ -53,7 +44,7 @@ export interface ApiResponse<T> {
   error?: {
     message: string;
     code?: string;
-    details?: any;
+    details?: unknown;
   };
   metadata?: {
     total?: number;

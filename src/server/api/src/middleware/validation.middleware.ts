@@ -7,10 +7,8 @@ import { sendValidationError } from "../utils/response.utils.js";
  */
 export function validate(validations: ValidationChain[]) {
   return async (req: Request, res: Response, next: NextFunction) => {
-    // Run all validations
     await Promise.all(validations.map((validation) => validation.run(req)));
 
-    // Check for errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       sendValidationError(res, errors.array());
@@ -29,13 +27,6 @@ export function validatePagination(
   res: Response,
   next: NextFunction
 ): void {
-  if (!req.query.page || !req.query.limit) {
-    sendValidationError(res, [
-      { msg: "Page and limit are required", param: "page" },
-    ]);
-    return;
-  }
-
   const page = parseInt(req.query.page as string);
   const limit = parseInt(req.query.limit as string);
 
@@ -53,7 +44,5 @@ export function validatePagination(
     return;
   }
 
-  req.query.page = page.toString();
-  req.query.limit = limit.toString();
   next();
 }

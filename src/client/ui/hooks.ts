@@ -1,9 +1,11 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { ImageFile, LogEntry, FilterType, ApiResponse } from "../types";
+import type { EditableExifInput } from "../../shared/exif";
 
 const API_BASE_URL = "http://localhost:3000/api";
 const DEFAULT_LIMIT = 50;
 
+// hook to manage the image gallery
 export function useImageGallery() {
   const [images, setImages] = useState<ImageFile[]>([]);
   const [loading, setLoading] = useState(false);
@@ -19,6 +21,7 @@ export function useImageGallery() {
   const [limit, setLimit] = useState(DEFAULT_LIMIT);
   const [total, setTotal] = useState(0);
 
+  // fetch images db data from the API
   const fetchImages = useCallback(
     async (params?: {
       page?: number;
@@ -77,6 +80,7 @@ export function useImageGallery() {
     [images, activeId]
   );
 
+  // handle upload of a single image
   const handleUpload = useCallback(
     async (file: File | null): Promise<ApiResponse<ImageFile>> => {
       if (!file) {
@@ -108,6 +112,7 @@ export function useImageGallery() {
           return result;
         }
 
+        // refresh the images
         await fetchImages();
         return result;
       } catch (err) {
@@ -126,6 +131,7 @@ export function useImageGallery() {
     [fetchImages]
   );
 
+  // toggle the selection of an image
   const toggleSelection = useCallback(
     (id: string, multi: boolean) => {
       setSelectedImages((prev) => {
@@ -153,38 +159,44 @@ export function useImageGallery() {
     [images]
   );
 
-  const deleteImage = useCallback(
-    async (id: string): Promise<ApiResponse<null>> => {
+  const deleteImages = useCallback(
+    async (ids: string[]): Promise<ApiResponse<null>> => {
+      if (!ids.length) {
+        return { success: true, data: null };
+      }
       try {
-        const response = await fetch(`${API_BASE_URL}/images/${id}`, {
+        const response = await fetch(`${API_BASE_URL}/images`, {
           method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ ids }),
         });
 
         const result: ApiResponse<null> = await response.json();
 
         if (result.success) {
-          fetchImages();
+          await fetchImages();
           setSelectedImages((prev) => {
-            const imageToRemove = Array.from(prev).find((img) => img.id === id);
-            if (imageToRemove) {
-              const newSet = new Set(prev);
-              newSet.delete(imageToRemove);
-              return newSet;
-            }
-            return prev;
+            const remaining = new Set(prev);
+            ids.forEach((id) => {
+              const match = Array.from(remaining).find((img) => img.id === id);
+              if (match) remaining.delete(match);
+            });
+            return remaining;
           });
-          if (activeId === id) {
+          if (activeId && ids.includes(activeId)) {
             setActiveId(null);
           }
         } else {
-          setError(result.error?.message || "Failed to delete image");
+          setError(result.error?.message || "Failed to delete images");
         }
 
         return result;
       } catch (err) {
         const errorMessage =
-          err instanceof Error ? err.message : "Failed to delete image";
-        console.error("Failed to delete image:", err);
+          err instanceof Error ? err.message : "Failed to delete images";
+        console.error("Failed to delete images:", err);
         setError(errorMessage);
         return {
           success: false,
@@ -224,6 +236,47 @@ export function useImageGallery() {
         const errorMessage =
           err instanceof Error ? err.message : "Failed to crop image";
         console.error("Failed to crop image:", err);
+        setError(errorMessage);
+        return {
+          success: false,
+          error: { message: errorMessage },
+        };
+      } finally {
+        setLoading(false);
+      }
+    },
+    [fetchImages]
+  );
+
+  const updateExif = useCallback(
+    async (
+      id: string,
+      payload: Partial<EditableExifInput>
+    ): Promise<ApiResponse<ImageFile>> => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(`${API_BASE_URL}/images/${id}/exif`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+
+        const result: ApiResponse<ImageFile> = await response.json();
+
+        if (result.success) {
+          await fetchImages();
+        } else {
+          setError(result.error?.message || "Failed to update EXIF data");
+        }
+
+        return result;
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to update EXIF data";
+        console.error("Failed to update EXIF data:", err);
         setError(errorMessage);
         return {
           success: false,
@@ -283,11 +336,12 @@ export function useImageGallery() {
     nextPage,
     prevPage,
     total,
-    deleteImage,
+    deleteImages,
     setError,
     cropImage,
     refresh: fetchImages,
     sync: syncGallery,
+    updateExif,
   };
 }
 

@@ -37,9 +37,19 @@ export const getImageSrc = (image: ImageFile, useThumbnail = false) => {
 export const getFormattedSize = (size: number) => formatBytes(size);
 export const getFormattedDate = (dateString: string) =>
   new Date(dateString).toLocaleDateString();
-export const getDimensions = (image: ImageFile) => {
-  if (image.metadata?.width && image.metadata?.height) {
-    return `${image.metadata.width}x${image.metadata.height}`;
+export const getExifDimensions = (image: ImageFile) => {
+  const parseValue = (value?: string) => {
+    if (!value) return undefined;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  };
+
+  const width = parseValue(image.metadata?.imageWidth);
+  const height = parseValue(image.metadata?.imageHeight);
+
+  if (width !== undefined && height !== undefined) {
+    return `${width}x${height}`;
   }
+
   return "Unknown";
 };

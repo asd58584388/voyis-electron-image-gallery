@@ -1,17 +1,13 @@
 import React, { useEffect, useRef } from "react";
-import { LogEntry } from "../../types";
+import { useGalleryContext } from "../context";
 
 interface BottomPanelProps {
-  logs: LogEntry[];
   isOpen: boolean;
   onToggle: () => void;
 }
 
-export default function BottomPanel({
-  logs,
-  isOpen,
-  onToggle,
-}: BottomPanelProps) {
+export default function BottomPanel({ isOpen, onToggle }: BottomPanelProps) {
+  const { logs } = useGalleryContext();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

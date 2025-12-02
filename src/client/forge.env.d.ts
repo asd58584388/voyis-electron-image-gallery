@@ -12,15 +12,10 @@ declare global {
   interface Window {
     electronAPI: {
       exportImages: (
-        images: ImageFile[],
-        targetFolder: string
-      ) => Promise<void>;
-      selectFolder: () => Promise<string | undefined>;
+        images: ImageFile[]
+      ) => Promise<{ cancelled: boolean; targetFolder?: string }>;
       batchUpload: () => Promise<void>;
-      onExportProgress: (callback: (data: IPCMessage) => void) => void;
-      onExportComplete: (callback: (data: IPCMessage) => void) => void;
-      onBatchUploadProgress: (callback: (data: IPCMessage) => void) => void;
-      onBatchUploadComplete: (callback: (data: IPCMessage) => void) => void;
+      onLog: (callback: (data: IPCMessage) => void) => void;
     };
   }
 }

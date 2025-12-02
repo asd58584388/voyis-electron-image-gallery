@@ -14,18 +14,19 @@ datasource db {
 }
 
 model Image {
-  id          String    @id @default(uuid()) @db.Uuid
-  filename    String    @db.Text
-  path        String    @db.Text
-  thumbnail_path String?  @db.Text
-  folder_name String    @db.Text
-  size        Int
-  mimetype    String    @db.Text
-  filehash    String    @db.Text
-  metadata    Json?
-  created_at  DateTime  @default(now()) @db.Timestamptz
-  updated_at  DateTime  @updatedAt @db.Timestamptz
-  deleted_at  DateTime? @db.Timestamptz
+  id             String    @id @default(uuid()) @db.Uuid
+  filename       String    @db.Text
+  path           String    @db.Text
+  thumbnail_path String?   @db.Text
+  originalName   String    @map("original_name") @db.Text
+  folder_name    String    @db.Text
+  size           Int
+  mimetype       String    @db.Text
+  filehash       String    @db.Text
+  metadata       Json?
+  created_at     DateTime  @default(now()) @db.Timestamptz
+  updated_at     DateTime  @updatedAt @db.Timestamptz
+  deleted_at     DateTime? @db.Timestamptz
 
   @@map("images")
 }

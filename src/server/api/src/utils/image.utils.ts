@@ -2,6 +2,14 @@ import sharp from "sharp";
 import crypto from "crypto";
 import fs from "fs/promises";
 import path from "path";
+import { exiftool } from "exiftool-vendored";
+import type { Tags as ExifTags } from "exiftool-vendored";
+import {
+  type EditableExifField,
+  type EditableExifInput,
+  type ExifMetadata,
+} from "../../../../shared/exif.js";
+import { EDITABLE_EXIF_FIELDS } from "../constants/exif.constants.js";
 
 /**
  * Supported image formats for the application
@@ -38,45 +46,127 @@ export function generateUniqueFilename(
  */
 export async function calculateFileHash(filePath: string): Promise<string> {
   const fileBuffer = await fs.readFile(filePath);
-  return crypto
-    .createHash("md5")
-    .update(fileBuffer)
-    .digest("hex");
+  return crypto.createHash("md5").update(fileBuffer).digest("hex");
 }
 
+const EDITABLE_FIELD_TAG_MAP: Record<EditableExifField, string> = {
+  make: "Make",
+  model: "Model",
+  dateTimeOriginal: "DateTimeOriginal",
+  iso: "ISO",
+  fNumber: "FNumber",
+  exposure: "ExposureTime",
+  focalLength: "FocalLength",
+  gpsLatitude: "GPSLatitude",
+  gpsLongitude: "GPSLongitude",
+  software: "Software",
+};
+
+const normalizeTagValue = (value: unknown): string | undefined => {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+
+  if (Array.isArray(value)) {
+    return value.length > 0 ? normalizeTagValue(value[0]) : undefined;
+  }
+
+  const stringified =
+    typeof value === "string"
+      ? value
+      : typeof value === "number"
+      ? Number.isFinite(value)
+        ? value.toString()
+        : ""
+      : value instanceof Date
+      ? value.toISOString()
+      : value.toString();
+
+  const trimmed = stringified.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const getTagValue = (tags: ExifTags, tagName: string): string | undefined =>
+  normalizeTagValue(tags[tagName as keyof ExifTags]);
+
+const EXIF_FIELD_TAGS: Record<keyof ExifMetadata, string> = {
+  imageWidth: "ImageWidth",
+  imageHeight: "ImageHeight",
+  orientation: "Orientation",
+  format: "FileType",
+  mimeType: "MIMEType",
+  make: "Make",
+  model: "Model",
+  dateTimeOriginal: "DateTimeOriginal",
+  iso: "ISO",
+  fNumber: "FNumber",
+  exposure: "ExposureTime",
+  focalLength: "FocalLength",
+  gpsLatitude: "GPSLatitude",
+  gpsLongitude: "GPSLongitude",
+  software: "Software",
+};
+
 /**
- * Get image metadata and dimensions from file path
- * More memory-efficient for large 4K images
- * Also validates image integrity - throws error if image is corrupted
+ * Extract curated EXIF data for an image using exiftool
  */
-export async function getImageMetadataFromPath(filePath: string) {
+export async function getExifDataFromPath(
+  filePath: string
+): Promise<ExifMetadata> {
   try {
-    const image = sharp(filePath);
-    const metadata = await image.metadata();
+    const tags = await exiftool.read(filePath);
+    const metadata: ExifMetadata = {};
 
-    // Extract EXIF data if available (already have metadata, no need to read again)
-    const exif = metadata.exif
-      ? {
-          hasExif: true,
-          orientation: metadata.orientation,
-          // Add more EXIF fields as needed using exif-parser library for detailed parsing
+    (Object.keys(EXIF_FIELD_TAGS) as Array<keyof ExifMetadata>).forEach(
+      (field) => {
+        const value = getTagValue(tags, EXIF_FIELD_TAGS[field]);
+        if (value !== undefined) {
+          metadata[field] = value;
         }
-      : null;
+      }
+    );
 
-    return {
-      width: metadata.width,
-      height: metadata.height,
-      format: metadata.format,
-      space: metadata.space,
-      channels: metadata.channels,
-      depth: metadata.depth,
-      density: metadata.density,
-      hasAlpha: metadata.hasAlpha,
-      exif: exif,
-    };
+    return metadata;
   } catch (error) {
     throw new Error(
-      `Failed to read image metadata: ${
+      `Failed to read EXIF data: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
+  }
+}
+
+const buildExifWritePayload = (
+  updates: Partial<EditableExifInput>
+): Record<string, string | null> => {
+  const payload: Record<string, string | null> = {};
+  for (const field of EDITABLE_EXIF_FIELDS) {
+    if (!(field in updates)) continue;
+    const value = updates[field];
+    if (value === undefined) continue;
+    payload[EDITABLE_FIELD_TAG_MAP[field]] = value;
+  }
+  return payload;
+};
+
+/**
+ * Write selected EXIF fields back to the file
+ */
+export async function writeExifDataToPath(
+  filePath: string,
+  updates: Partial<EditableExifInput>
+): Promise<void> {
+  const payload = buildExifWritePayload(updates);
+  if (Object.keys(payload).length === 0) {
+    return;
+  }
+  try {
+    await exiftool.write(filePath, payload, {
+      writeArgs: ["-overwrite_original"],
+    });
+  } catch (error) {
+    throw new Error(
+      `Failed to update EXIF data: ${
         error instanceof Error ? error.message : "Unknown error"
       }`
     );
@@ -149,13 +239,6 @@ export async function deleteFileIfExists(filePath: string): Promise<void> {
   }
 }
 
-/**
- * Get file size in a human-readable format
- */
-export function formatFileSize(bytes: number): string {
-  if (bytes === 0) return "0 Bytes";
-  const k = 1024;
-  const sizes = ["Bytes", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
-}
+process.once("beforeExit", async () => {
+  await exiftool.end();
+});

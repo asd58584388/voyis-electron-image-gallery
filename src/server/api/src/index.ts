@@ -87,7 +87,6 @@ app.get("/", (_req, res) => {
     version: "1.0.0",
     status: "running",
     endpoints: {
-      health: "/api/health",
       images: "/api/images",
       uploads: "/uploads",
     },
@@ -130,12 +129,12 @@ async function startServer() {
 ║   Storage: ${STORAGE_PATH.substring(0, 42).padEnd(43)} ║
 ║                                                        ║
 ║   Endpoints:                                           ║
-║   - GET  /api/health                                   ║
-║   - GET  /api/images                                   ║
-║   - POST /api/images                                   ║
-║   - GET  /api/images/:id                               ║
-║   - PATCH /api/images/:id                              ║
-║   - DELETE /api/images/:id                             ║
+║   - GET    /api/images                                 ║
+║   - POST   /api/images                                 ║
+║   - DELETE /api/images                                 ║
+║   - GET    /api/images/:id                             ║
+║   - POST   /api/images/:id/crop                        ║
+║   - PATCH  /api/images/:id/exif                        ║
 ╚════════════════════════════════════════════════════════╝
       `);
     });
