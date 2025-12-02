@@ -10,7 +10,9 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "db:migrate": "prisma migrate deploy",
+    "db:reset": "prisma migrate reset",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -21,6 +23,7 @@
     "compression": "^1.7.5",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
+    "exiftool-vendored": "^33.5.0",
     "express": "^5.1.0",
     "express-validator": "^7.2.1",
     "helmet": "^8.0.0",
